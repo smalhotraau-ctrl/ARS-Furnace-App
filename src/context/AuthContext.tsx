@@ -20,6 +20,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+// Temporary: skip login and open as admin_owner. Remove when real auth is restored.
+const TEMP_BYPASS_AUTH = true
+
+const TEMP_ADMIN_USER: AppUser = {
+  id: '00000000-0000-0000-0000-000000000001',
+  username: 'admin',
+  role: 'admin_owner',
+}
+
 const DEV_USER_ID = import.meta.env.VITE_DEV_USER_ID as string | undefined
 const DEV_ROLE = import.meta.env.VITE_DEV_ROLE as UserRole | undefined
 
@@ -45,10 +54,12 @@ async function loadUserProfile(userId: string): Promise<AppUser | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<AppUser | null>(TEMP_BYPASS_AUTH ? TEMP_ADMIN_USER : null)
+  const [loading, setLoading] = useState(!TEMP_BYPASS_AUTH)
 
   useEffect(() => {
+    if (TEMP_BYPASS_AUTH) return
+
     let mounted = true
 
     async function init() {
@@ -103,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    if (TEMP_BYPASS_AUTH) return
     if (DEV_USER_ID) {
       setUser(null)
       return
