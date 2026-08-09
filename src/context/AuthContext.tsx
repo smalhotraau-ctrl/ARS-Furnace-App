@@ -26,7 +26,7 @@ const TEMP_BYPASS_AUTH = true
 const TEMP_ADMIN_USER: AppUser = {
   id: '00000000-0000-0000-0000-000000000001',
   username: 'admin',
-  role: 'admin_owner',
+  role: 'supervisor',
 }
 
 const DEV_USER_ID = import.meta.env.VITE_DEV_USER_ID as string | undefined
