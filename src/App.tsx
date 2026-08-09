@@ -9,8 +9,11 @@ import { PitFurnacePage } from './pages/PitFurnacePage'
 import { SpectroPage } from './pages/SpectroPage'
 
 function AppShell() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const [activeScreen, setActiveScreen] = useState<AppScreen>('batch')
+
+  // Automatic background sign-in is in flight; no login screen is shown.
+  if (loading || !user) return null
 
   function renderScreen() {
     switch (activeScreen) {
