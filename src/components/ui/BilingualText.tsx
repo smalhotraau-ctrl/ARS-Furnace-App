@@ -1,7 +1,7 @@
 interface BilingualTextProps {
   en: string
   hi: string
-  as?: 'span' | 'p' | 'h1' | 'h2' | 'label'
+  as?: 'span' | 'p' | 'h1' | 'h2' | 'h3' | 'label'
   className?: string
 }
 
