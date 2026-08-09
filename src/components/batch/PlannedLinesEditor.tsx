@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { PlannedLine } from '../../types/batchPlan'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
 interface PlannedLinesEditorProps {
@@ -16,6 +17,7 @@ export function PlannedLinesEditor({
   disabled = false,
   onChange,
 }: PlannedLinesEditorProps) {
+  const { t } = useLanguage()
   const [materialCode, setMaterialCode] = useState('')
   const [plannedKg, setPlannedKg] = useState('')
 
@@ -52,7 +54,7 @@ export function PlannedLinesEditor({
                 onChange={(e) => setMaterialCode(e.target.value)}
                 className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
               >
-                <option value="">Select material · सामग्री चुनें</option>
+                <option value="">{t('Select material', 'सामग्री चुनें')}</option>
                 {materialCodes.map((code) => (
                   <option key={code} value={code}>
                     {code}
@@ -82,13 +84,13 @@ export function PlannedLinesEditor({
             disabled={!materialCode.trim() || parseNumericField(plannedKg) == null}
             className="min-h-12 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-base font-semibold text-emerald-300 disabled:opacity-50"
           >
-            Add line · पंक्ति जोड़ें
+            {t('Add line', 'पंक्ति जोड़ें')}
           </button>
         </div>
       )}
 
       {lines.length === 0 ? (
-        <p className="text-sm text-slate-400">No material lines yet · अभी कोई सामग्री नहीं</p>
+        <p className="text-sm text-slate-400">{t('No material lines yet', 'अभी कोई सामग्री नहीं')}</p>
       ) : (
         <ul className="space-y-2">
           {lines.map((line, index) => (
@@ -106,7 +108,7 @@ export function PlannedLinesEditor({
                   onClick={() => removeLine(index)}
                   className="rounded-lg px-3 py-2 text-sm text-red-300 hover:bg-red-950/40"
                 >
-                  Remove · हटाएं
+                  {t('Remove', 'हटाएं')}
                 </button>
               )}
             </li>

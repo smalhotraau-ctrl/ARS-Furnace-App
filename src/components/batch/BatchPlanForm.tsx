@@ -5,6 +5,7 @@ import { computeExpectedComposition } from '../../lib/compositionCalc'
 import { ExpectedCompositionPanel } from './ExpectedCompositionPanel'
 import { PlannedLinesEditor } from './PlannedLinesEditor'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 
 interface BatchPlanFormProps {
   furnaces: FurnaceOption[]
@@ -39,6 +40,7 @@ export function BatchPlanForm({
   onSubmit,
   onCancel,
 }: BatchPlanFormProps) {
+  const { t } = useLanguage()
   const [step, setStep] = useState(initialPlan ? 1 : 0)
   const [furnaceCode, setFurnaceCode] = useState(initialPlan?.furnace_code ?? '')
   const [gradeCode, setGradeCode] = useState(initialPlan?.grade_code ?? '')
@@ -100,7 +102,7 @@ export function BatchPlanForm({
               onChange={(e) => setFurnaceCode(e.target.value)}
               className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
             >
-              <option value="">Select furnace · फर्नेस चुनें</option>
+              <option value="">{t('Select furnace', 'फर्नेस चुनें')}</option>
               {furnaces.map((f) => (
                 <option key={f.code} value={f.code}>
                   {f.code} — {f.name}
@@ -116,7 +118,7 @@ export function BatchPlanForm({
               onChange={(e) => setGradeCode(e.target.value)}
               className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
             >
-              <option value="">Select grade · ग्रेड चुनें</option>
+              <option value="">{t('Select grade', 'ग्रेड चुनें')}</option>
               {gradeCodes.map((code) => (
                 <option key={code} value={code}>
                   {code}
@@ -140,7 +142,7 @@ export function BatchPlanForm({
             onClick={() => setStep(1)}
             className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
           >
-            Next · आगे
+            {t('Next', 'आगे')}
           </button>
         </div>
       )}
@@ -160,7 +162,7 @@ export function BatchPlanForm({
               onClick={() => (onCancel ? onCancel() : setStep(0))}
               className="min-h-14 flex-1 rounded-xl border border-slate-600 text-lg font-semibold"
             >
-              {onCancel ? 'Cancel · रद्द' : 'Back · पीछे'}
+              {onCancel ? t('Cancel', 'रद्द') : t('Back', 'पीछे')}
             </button>
             <button
               type="button"
@@ -168,7 +170,7 @@ export function BatchPlanForm({
               onClick={() => void handleSave()}
               className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
             >
-              Save · सहेजें
+              {t('Save', 'सहेजें')}
             </button>
           </div>
         </div>

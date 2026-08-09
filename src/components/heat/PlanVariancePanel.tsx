@@ -1,4 +1,5 @@
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 
 interface PlanVariancePanelProps {
   variance: Array<{
@@ -10,6 +11,8 @@ interface PlanVariancePanelProps {
 }
 
 export function PlanVariancePanel({ variance }: PlanVariancePanelProps) {
+  const { t } = useLanguage()
+
   if (variance.length === 0) return null
 
   return (
@@ -21,7 +24,7 @@ export function PlanVariancePanel({ variance }: PlanVariancePanelProps) {
         className="text-lg font-bold text-slate-100"
       />
       <p className="mt-1 text-sm text-slate-400">
-        Advisory only · केवल सलाह
+        {t('Advisory only', 'केवल सलाह')}
       </p>
       <ul className="mt-4 space-y-2">
         {variance.map((row) => {

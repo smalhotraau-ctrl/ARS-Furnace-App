@@ -16,12 +16,14 @@ import {
 } from '../lib/pitFurnaceService'
 import { computeBalanceFromHeats, type PitHeat } from '../types/pitFurnace'
 import { BilingualText } from '../components/ui/BilingualText'
+import { useLanguage } from '../context/LanguageContext'
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
 export function PitFurnacePage() {
+  const { t } = useLanguage()
   const { user, isReadOnly } = useAuth()
   const [heats, setHeats] = useState<PitHeat[]>(() => loadLocalPitHeats())
   const [balanceKg, setBalanceKg] = useState(() => computeBalanceFromHeats(loadLocalPitHeats(), todayIsoDate()))
@@ -86,7 +88,10 @@ export function PitFurnacePage() {
         />
         {showPendingIndicator && pendingUploads > 0 && (
           <p className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-2 text-sm text-amber-200">
-            {pendingUploads} entries pending upload · {pendingUploads} प्रविष्टियाँ अपलोड बाकी
+            {t(
+              `${pendingUploads} entries pending upload`,
+              `${pendingUploads} प्रविष्टियाँ अपलोड बाकी`,
+            )}
           </p>
         )}
       </header>
@@ -94,7 +99,7 @@ export function PitFurnacePage() {
       <PitBalanceDisplay balanceKg={balanceKg} asOfDate={todayIsoDate()} />
 
       {loading && (
-        <p className="text-center text-slate-400">Loading… · लोड हो रहा है…</p>
+        <p className="text-center text-slate-400">{t('Loading…', 'लोड हो रहा है…')}</p>
       )}
 
       {role === 'supervisor' && (

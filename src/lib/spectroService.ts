@@ -1,0 +1,117 @@
+import { supabase } from './supabaseClient'
+import { fetchGradeSpecs } from './batchPlanService'
+import { fetchChargeLines, fetchHeats, loadLocalHeats } from './heatService'
+import {
+  addLocalSpectroReport,
+  enqueueSpectroAction,
+  getCachedSpectroReports,
+  getSpectroQueue,
+  removeSpectroPending,
+  rowToSpectroReport,
+  setCachedSpectroReports,
+  setSpectroQueue,
+  updateLocalSpectroReport,
+} from './spectroOfflineStore'
+import type { AppUser } from '../types/auth'
+import type { CorrectionSuggestion, SpectroReport, SpectroReportInsert } from '../types/spectro'
+import type { Heat } from '../types/heat'
+
+const furnace = () => supabase.schema('furnace')
+
+export async function fetchSpectroReports(heatId?: string): Promise<SpectroReport[]> {
+  let query = furnace()
+    .from('spectro_reports')
+    .select('*')
+    .order('sample_time', { ascending: false })
+
+  if (heatId) query = query.eq('heat_id', heatId)
+
+  const { data, error } = await query
+  if (error) throw error
+
+  const serverReports = (data ?? []).map((row) => rowToSpectroReport(row as Record<string, unknown>))
+  const localPending = getCachedSpectroReports().filter((r) => r._pending && (!heatId || r.heat_id === heatId))
+  const merged = new Map<string, SpectroReport>()
+  for (const r of serverReports) merged.set(r.id, r)
+  for (const r of localPending) merged.set(r.id, r)
+
+  const result = [...merged.values()].sort((a, b) => b.sample_time.localeCompare(a.sample_time))
+  setCachedSpectroReports(result)
+  return heatId ? result.filter((r) => r.heat_id === heatId) : result
+}
+
+export async function fetchHeatsForSpectro(): Promise<Heat[]> {
+  return navigator.onLine ? fetchHeats() : loadLocalHeats()
+}
+
+export { fetchGradeSpecs, fetchChargeLines }
+
+export async function saveSpectroReport(
+  user: AppUser,
+  payload: Omit<SpectroReportInsert, 'recorded_by'>,
+): Promise<SpectroReport> {
+  const insert: SpectroReportInsert = { ...payload, recorded_by: user.id }
+  const localId = crypto.randomUUID()
+  const now = new Date().toISOString()
+
+  const localReport: SpectroReport = {
+    id: localId,
+    _localId: localId,
+    _pending: true,
+    ...insert,
+    recorded_at: now,
+  }
+
+  addLocalSpectroReport(localReport)
+  enqueueSpectroAction({ kind: 'insert', localId, payload: insert })
+  void syncSpectroQueue()
+
+  return localReport
+}
+
+export async function updateReportCorrection(
+  report: SpectroReport,
+  correction: CorrectionSuggestion[],
+): Promise<SpectroReport> {
+  const updated = { ...report, correction_suggested: correction, _pending: true }
+  updateLocalSpectroReport(report.id, updated)
+
+  const queue = getSpectroQueue()
+  const insertAction = queue.find((a) => a.localId === report._localId)
+  if (insertAction) {
+    insertAction.payload.correction_suggested = correction
+    setSpectroQueue([...queue])
+  }
+
+  void syncSpectroQueue()
+  return updated
+}
+
+export async function syncSpectroQueue(): Promise<number> {
+  if (!navigator.onLine) return getSpectroQueue().length
+
+  for (const action of [...getSpectroQueue()]) {
+    if (action.kind === 'insert') {
+      const { data, error } = await furnace()
+        .from('spectro_reports')
+        .insert(action.payload)
+        .select('*')
+        .single()
+
+      if (error) continue
+
+      const synced = rowToSpectroReport(data as Record<string, unknown>)
+      removeSpectroPending(action.localId)
+      updateLocalSpectroReport(action.localId, { ...synced, _localId: undefined, _pending: false })
+    }
+  }
+
+  setCachedSpectroReports(getCachedSpectroReports())
+  return getSpectroQueue().length
+}
+
+export function loadLocalSpectroReports(): SpectroReport[] {
+  return getCachedSpectroReports()
+}
+
+export { getSpectroPendingCount } from './spectroOfflineStore'

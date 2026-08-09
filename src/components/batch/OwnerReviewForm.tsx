@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { BatchPlan } from '../../types/batchPlan'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 
 interface OwnerReviewFormProps {
   plan: BatchPlan | null
@@ -9,6 +10,7 @@ interface OwnerReviewFormProps {
 }
 
 export function OwnerReviewForm({ plan, disabled = false, onSubmit }: OwnerReviewFormProps) {
+  const { t } = useLanguage()
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -34,8 +36,7 @@ export function OwnerReviewForm({ plan, disabled = false, onSubmit }: OwnerRevie
         className="text-lg font-bold text-amber-100"
       />
       <p className="text-sm text-amber-200/80">
-        Informational only — does not affect plan usability
-        <span className="block">केवल जानकारी — योजना उपयोग पर असर नहीं</span>
+        {t('Informational only — does not affect plan usability', 'केवल जानकारी — योजना उपयोग पर असर नहीं')}
       </p>
       <label className="block space-y-2">
         <BilingualText as="span" en="Note (optional)" hi="नोट (वैकल्पिक)" className="font-semibold" />
@@ -53,7 +54,7 @@ export function OwnerReviewForm({ plan, disabled = false, onSubmit }: OwnerRevie
         onClick={() => void handleAcknowledge()}
         className="min-h-14 w-full rounded-xl bg-amber-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
       >
-        Acknowledge · स्वीकार करें
+        {t('Acknowledge', 'स्वीकार करें')}
       </button>
     </section>
   )

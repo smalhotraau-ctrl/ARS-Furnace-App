@@ -7,6 +7,7 @@ import { PlanVariancePanel } from '../components/heat/PlanVariancePanel'
 import { StartHeatForm } from '../components/heat/StartHeatForm'
 import { SavedConfirmation } from '../components/ui/SavedConfirmation'
 import { BilingualText } from '../components/ui/BilingualText'
+import { useLanguage } from '../context/LanguageContext'
 import {
   addChargeLine,
   computePlanVariance,
@@ -30,6 +31,7 @@ import type { ChargeLine, Heat } from '../types/heat'
 import { isActiveHeat } from '../types/heat'
 
 export function HeatChargingPage() {
+  const { t } = useLanguage()
   const { user } = useAuth()
   const role = user!.role
 
@@ -117,7 +119,7 @@ export function HeatChargingPage() {
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
       <BilingualText as="h1" en="Heat Charging" hi="हीट चार्जिंग" className="text-3xl font-bold" />
 
-      {loading && <p className="text-center text-slate-400">Loading… · लोड हो रहा है…</p>}
+      {loading && <p className="text-center text-slate-400">{t('Loading…', 'लोड हो रहा है…')}</p>}
 
       {canStartAndCharge && (
         <StartHeatForm

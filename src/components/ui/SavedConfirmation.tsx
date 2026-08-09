@@ -1,8 +1,12 @@
+import { useLanguage } from '../../context/LanguageContext'
+
 interface SavedConfirmationProps {
   visible: boolean
 }
 
 export function SavedConfirmation({ visible }: SavedConfirmationProps) {
+  const { t } = useLanguage()
+
   if (!visible) return null
 
   return (
@@ -16,10 +20,7 @@ export function SavedConfirmation({ visible }: SavedConfirmationProps) {
           <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
-      <div>
-        <p className="text-lg font-semibold text-emerald-100">Saved</p>
-        <p className="text-sm text-emerald-200/80">सहेजा गया</p>
-      </div>
+      <p className="text-lg font-semibold text-emerald-100">{t('Saved', 'सहेजा गया')}</p>
     </div>
   )
 }

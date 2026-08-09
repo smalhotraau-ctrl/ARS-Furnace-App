@@ -6,6 +6,7 @@ import { BatchPlanList } from '../components/batch/BatchPlanList'
 import { OwnerReviewForm } from '../components/batch/OwnerReviewForm'
 import { SavedConfirmation } from '../components/ui/SavedConfirmation'
 import { BilingualText } from '../components/ui/BilingualText'
+import { useLanguage } from '../context/LanguageContext'
 import {
   acknowledgeBatchPlan,
   fetchBatchPlans,
@@ -22,6 +23,7 @@ import {
 import type { BatchPlan, FurnaceOption, GradeSpecRow, MaterialStdRow } from '../types/batchPlan'
 
 export function BatchPlanPage() {
+  const { t } = useLanguage()
   const { user } = useAuth()
   const role = user!.role
 
@@ -103,13 +105,16 @@ export function BatchPlanPage() {
         />
         {canOwnerReview && pendingUploads > 0 && (
           <p className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-2 text-sm text-amber-200">
-            {pendingUploads} entries pending upload · {pendingUploads} प्रविष्टियाँ अपलोड बाकी
+            {t(
+              `${pendingUploads} entries pending upload`,
+              `${pendingUploads} प्रविष्टियाँ अपलोड बाकी`,
+            )}
           </p>
         )}
       </header>
 
       {loading && (
-        <p className="text-center text-slate-400">Loading… · लोड हो रहा है…</p>
+        <p className="text-center text-slate-400">{t('Loading…', 'लोड हो रहा है…')}</p>
       )}
 
       {canCreateEdit && !creating && !editing && (
@@ -118,7 +123,7 @@ export function BatchPlanPage() {
           onClick={() => setCreating(true)}
           className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950"
         >
-          New Batch Plan · नई बैच योजना
+          {t('New Batch Plan', 'नई बैच योजना')}
         </button>
       )}
 
@@ -182,7 +187,7 @@ export function BatchPlanPage() {
               onClick={() => setEditing(true)}
               className="min-h-12 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-base font-semibold text-emerald-300"
             >
-              Edit selected plan · चयनित योजना संपादित करें
+              {t('Edit selected plan', 'चयनित योजना संपादित करें')}
             </button>
           )}
 

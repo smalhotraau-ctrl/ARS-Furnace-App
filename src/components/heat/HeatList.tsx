@@ -1,6 +1,7 @@
 import type { Heat } from '../../types/heat'
 import { isActiveHeat } from '../../types/heat'
 import { isPendingSyncHeatNo } from '../../lib/heatNumber'
+import { useLanguage } from '../../context/LanguageContext'
 
 interface HeatListProps {
   heats: Heat[]
@@ -9,11 +10,12 @@ interface HeatListProps {
 }
 
 export function HeatList({ heats, selectedId, onSelect }: HeatListProps) {
+  const { t } = useLanguage()
+
   if (heats.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-600 p-6 text-center text-slate-400">
-        <p>No heats yet</p>
-        <p className="text-sm">अभी कोई हीट नहीं</p>
+        <p>{t('No heats yet', 'अभी कोई हीट नहीं')}</p>
       </div>
     )
   }
@@ -44,12 +46,12 @@ export function HeatList({ heats, selectedId, onSelect }: HeatListProps) {
                   <p className="capitalize text-slate-300">{heat.status}</p>
                   {isPendingSyncHeatNo(heat.heat_no) && (
                     <span className="mt-1 inline-block rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
-                      Pending sync
+                      {t('Pending sync', 'सिंक बाकी')}
                     </span>
                   )}
                   {isActiveHeat(heat.status) && (
                     <span className="mt-1 inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
-                      Active
+                      {t('Active', 'सक्रिय')}
                     </span>
                   )}
                 </div>

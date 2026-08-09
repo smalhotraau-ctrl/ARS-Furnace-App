@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { PitHeat } from '../../types/pitFurnace'
 import { nextHeatNo } from '../../types/pitFurnace'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
 interface PitProductionFormProps {
@@ -23,6 +24,7 @@ function todayIsoDate() {
 }
 
 export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProductionFormProps) {
+  const { t } = useLanguage()
   const [step, setStep] = useState(0)
   const [date, setDate] = useState(todayIsoDate())
   const [weightKg, setWeightKg] = useState('')
@@ -104,8 +106,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
             />
           </label>
           <div className="rounded-xl bg-slate-900/70 px-4 py-3">
-            <p className="text-sm text-slate-400">Heat number (auto)</p>
-            <p className="text-sm text-slate-500">हीट नंबर (स्वचालित)</p>
+            <p className="text-sm text-slate-400">{t('Heat number (auto)', 'हीट नंबर (स्वचालित)')}</p>
             <p className="mt-1 text-2xl font-bold text-emerald-400">{heatNoPreview}</p>
           </div>
           <button
@@ -114,7 +115,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
             onClick={() => setStep(1)}
             className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
           >
-            Next · आगे
+            {t('Next', 'आगे')}
           </button>
         </div>
       )}
@@ -128,7 +129,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
           <NumericField id="woodFuel" labelEn="Wood Fuel (kg)" labelHi="लकड़ी ईंधन (किग्रा)" value={woodFuelKg} onChange={setWoodFuelKg} disabled={disabled} required />
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep(0)} className="min-h-14 flex-1 rounded-xl border border-slate-600 text-lg font-semibold">
-              Back · पीछे
+              {t('Back', 'पीछे')}
             </button>
             <button
               type="button"
@@ -136,7 +137,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
               onClick={() => setStep(2)}
               className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
             >
-              Next · आगे
+              {t('Next', 'आगे')}
             </button>
           </div>
         </div>
@@ -151,7 +152,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep(1)} className="min-h-14 flex-1 rounded-xl border border-slate-600 text-lg font-semibold">
-              Back · पीछे
+              {t('Back', 'पीछे')}
             </button>
             <button
               type="button"
@@ -159,7 +160,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
               onClick={() => void handleSave()}
               className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
             >
-              Save · सहेजें
+              {t('Save', 'सहेजें')}
             </button>
           </div>
         </div>

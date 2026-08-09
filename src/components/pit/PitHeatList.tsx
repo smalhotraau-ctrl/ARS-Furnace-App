@@ -1,5 +1,6 @@
 import { isCompositionComplete, type PitHeat } from '../../types/pitFurnace'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 
 interface PitHeatListProps {
   heats: PitHeat[]
@@ -9,11 +10,12 @@ interface PitHeatListProps {
 }
 
 export function PitHeatList({ heats, selectedId, onSelect, showQualityStatus = false }: PitHeatListProps) {
+  const { t } = useLanguage()
+
   if (heats.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-600 p-6 text-center text-slate-400">
-        <p>No pit heats yet</p>
-        <p className="text-sm">अभी कोई पिट हीट नहीं</p>
+        <p>{t('No pit heats yet', 'अभी कोई पिट हीट नहीं')}</p>
       </div>
     )
   }

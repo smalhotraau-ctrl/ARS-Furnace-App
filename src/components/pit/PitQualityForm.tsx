@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PIT_ELEMENTS, type CompositionEntry, type PitHeat } from '../../types/pitFurnace'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
 interface PitQualityFormProps {
@@ -19,6 +20,7 @@ const ELEMENT_LABELS: Record<(typeof PIT_ELEMENTS)[number], { en: string; hi: st
 }
 
 export function PitQualityForm({ heat, disabled = false, onSubmit }: PitQualityFormProps) {
+  const { t } = useLanguage()
   const [values, setValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -38,8 +40,7 @@ export function PitQualityForm({ heat, disabled = false, onSubmit }: PitQualityF
   if (!heat) {
     return (
       <section className="rounded-2xl border border-dashed border-slate-600 p-6 text-center text-slate-400">
-        <p>Select a heat to record quality</p>
-        <p className="text-sm">गुणवत्ता दर्ज करने के लिए हीट चुनें</p>
+        <p>{t('Select a heat to record quality', 'गुणवत्ता दर्ज करने के लिए हीट चुनें')}</p>
       </section>
     )
   }
@@ -69,8 +70,7 @@ export function PitQualityForm({ heat, disabled = false, onSubmit }: PitQualityF
           className="text-xl font-bold text-slate-100"
         />
         <p className="mt-2 text-sm text-slate-400">
-          Record only — no pass/fail flag
-          <span className="block">केवल रिकॉर्ड — कोई पास/फेल नहीं</span>
+          {t('Record only — no pass/fail flag', 'केवल रिकॉर्ड — कोई पास/फेल नहीं')}
         </p>
         <p className="mt-3 text-lg font-semibold text-emerald-400">{heat.heat_no}</p>
       </div>
@@ -96,7 +96,7 @@ export function PitQualityForm({ heat, disabled = false, onSubmit }: PitQualityF
         onClick={() => void handleSave()}
         className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
       >
-        Save Quality · गुणवत्ता सहेजें
+        {t('Save Quality', 'गुणवत्ता सहेजें')}
       </button>
     </section>
   )

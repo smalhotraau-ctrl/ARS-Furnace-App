@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { BatchPlan } from '../../types/batchPlan'
 import type { FurnaceOption } from '../../types/batchPlan'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
 interface StartHeatFormProps {
@@ -19,6 +20,7 @@ interface StartHeatFormProps {
 }
 
 export function StartHeatForm({ furnaces, batchPlans, disabled = false, onStart }: StartHeatFormProps) {
+  const { t } = useLanguage()
   const [furnaceCode, setFurnaceCode] = useState('')
   const [batchPlanId, setBatchPlanId] = useState('')
   const [gradeCode, setGradeCode] = useState('')
@@ -85,7 +87,7 @@ export function StartHeatForm({ furnaces, batchPlans, disabled = false, onStart 
         className="text-xl font-bold text-slate-100"
       />
       <p className="text-sm text-slate-400">
-        Heat number is system-generated · हीट नंबर स्वचालित
+        {t('Heat number is system-generated', 'हीट नंबर स्वचालित')}
       </p>
 
       <label className="block space-y-2">
@@ -96,7 +98,7 @@ export function StartHeatForm({ furnaces, batchPlans, disabled = false, onStart 
           onChange={(e) => setFurnaceCode(e.target.value)}
           className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
         >
-          <option value="">Select · चुनें</option>
+          <option value="">{t('Select', 'चुनें')}</option>
           {furnaces.map((f) => (
             <option key={f.code} value={f.code}>{f.code} — {f.name}</option>
           ))}
@@ -111,7 +113,7 @@ export function StartHeatForm({ furnaces, batchPlans, disabled = false, onStart 
           onChange={(e) => handlePlanChange(e.target.value)}
           className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
         >
-          <option value="">No plan · कोई योजना नहीं</option>
+          <option value="">{t('No plan', 'कोई योजना नहीं')}</option>
           {filteredPlans.map((p) => (
             <option key={p.id} value={p.id}>{p.furnace_code} · {p.grade_code} · {p.plan_date}</option>
           ))}
@@ -158,13 +160,13 @@ export function StartHeatForm({ furnaces, batchPlans, disabled = false, onStart 
           onClick={() => void handleSubmit(false)}
           className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
         >
-          Start Heat · हीट शुरू करें
+          {t('Start Heat', 'हीट शुरू करें')}
         </button>
       ) : (
         <div className="space-y-3">
           {!showEmergency ? (
             <p className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-amber-200">
-              Connection required to start a heat · कनेक्शन आवश्यक
+              {t('Connection required to start a heat', 'कनेक्शन आवश्यक')}
             </p>
           ) : null}
           {!showEmergency ? (
@@ -202,7 +204,7 @@ export function StartHeatForm({ furnaces, batchPlans, disabled = false, onStart 
                 onClick={() => void handleSubmit(true)}
                 className="min-h-14 w-full rounded-xl bg-amber-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
               >
-                Confirm Emergency Start · पुष्टि करें
+                {t('Confirm Emergency Start', 'पुष्टि करें')}
               </button>
             </div>
           )}

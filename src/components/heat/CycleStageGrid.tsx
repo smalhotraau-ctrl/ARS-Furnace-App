@@ -2,6 +2,7 @@ import type { CycleLogEntry, CycleStage } from '../../types/heat'
 import { CYCLE_STAGES } from '../../types/heat'
 import { CYCLE_STAGE_META } from '../../lib/heatLabels'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 
 interface CycleStageGridProps {
   entries: CycleLogEntry[]
@@ -11,6 +12,8 @@ interface CycleStageGridProps {
 }
 
 export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }: CycleStageGridProps) {
+  const { t } = useLanguage()
+
   return (
     <section className="space-y-4">
       <BilingualText
@@ -20,7 +23,10 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
         className="text-xl font-bold text-slate-100"
       />
       <p className="text-sm text-slate-400">
-        Tap to record time automatically · समय स्वचालित दर्ज · No edits ever · कभी संपादित नहीं
+        {t(
+          'Tap to record time automatically · No edits ever',
+          'समय स्वचालित दर्ज · कभी संपादित नहीं',
+        )}
       </p>
 
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-3">
@@ -36,8 +42,7 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
               className="flex flex-col items-center rounded-2xl border border-slate-700 bg-slate-800/60 p-3 text-center"
             >
               <span className="text-3xl" aria-hidden>{meta.icon}</span>
-              <p className="mt-2 text-sm font-bold text-slate-100">{meta.en}</p>
-              <p className="text-xs text-slate-400">{meta.hi}</p>
+              <p className="mt-2 text-sm font-bold text-slate-100">{t(meta.en, meta.hi)}</p>
 
               {openEntry ? (
                 <button
@@ -46,7 +51,7 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
                   onClick={() => void onFinish(openEntry)}
                   className="mt-3 min-h-11 w-full rounded-xl bg-amber-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
                 >
-                  Finish · समाप्त
+                  {t('Finish', 'समाप्त')}
                 </button>
               ) : (
                 <button
@@ -55,7 +60,7 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
                   onClick={() => void onStart(stage)}
                   className="mt-3 min-h-11 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
                 >
-                  Start · शुरू
+                  {t('Start', 'शुरू')}
                 </button>
               )}
 

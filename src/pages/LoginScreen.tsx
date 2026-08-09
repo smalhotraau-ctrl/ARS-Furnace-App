@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { BilingualText } from '../components/ui/BilingualText'
+import { useLanguage } from '../context/LanguageContext'
 
 export function LoginScreen() {
+  const { t } = useLanguage()
   const { signIn } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -46,7 +48,7 @@ export function LoginScreen() {
         {error && (
           <p className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-3 text-red-200">
             {error}
-            <span className="block text-sm">त्रुटि · कृपया पुनः प्रयास करें</span>
+            <span className="block text-sm">{t('Error — please try again', 'त्रुटि · कृपया पुनः प्रयास करें')}</span>
           </p>
         )}
         <button
@@ -54,7 +56,7 @@ export function LoginScreen() {
           disabled={submitting}
           className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
         >
-          Sign In · साइन इन
+          {t('Sign In', 'साइन इन')}
         </button>
       </form>
     </main>

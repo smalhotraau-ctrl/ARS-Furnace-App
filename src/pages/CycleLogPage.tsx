@@ -5,6 +5,7 @@ import { HeatList } from '../components/heat/HeatList'
 import { TempReadingForm } from '../components/heat/TempReadingForm'
 import { SavedConfirmation } from '../components/ui/SavedConfirmation'
 import { BilingualText } from '../components/ui/BilingualText'
+import { useLanguage } from '../context/LanguageContext'
 import {
   addTempReading,
   fetchCycleLog,
@@ -19,6 +20,7 @@ import type { CycleLogEntry, Heat, TempReading } from '../types/heat'
 import { isActiveHeat } from '../types/heat'
 
 export function CycleLogPage() {
+  const { t } = useLanguage()
   const { user } = useAuth()
   const role = user!.role
 
@@ -73,8 +75,7 @@ export function CycleLogPage() {
   if (!canView) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 text-center text-slate-400">
-        <p>No access to cycle log</p>
-        <p className="text-sm">साइकिल लॉग की अनुमति नहीं</p>
+        <p>{t('No access to cycle log', 'साइकिल लॉग की अनुमति नहीं')}</p>
       </div>
     )
   }
@@ -83,7 +84,7 @@ export function CycleLogPage() {
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
       <BilingualText as="h1" en="Cycle Log" hi="साइकिल लॉग" className="text-3xl font-bold" />
 
-      {loading && <p className="text-center text-slate-400">Loading… · लोड हो रहा है…</p>}
+      {loading && <p className="text-center text-slate-400">{t('Loading…', 'लोड हो रहा है…')}</p>}
 
       <div>
         <BilingualText as="h2" en="Select Active Heat" hi="सक्रिय हीट चुनें" className="mb-3 text-lg font-semibold" />

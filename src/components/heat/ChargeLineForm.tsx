@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ChargeLine } from '../../types/heat'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
 interface ChargeLineFormProps {
@@ -16,6 +17,7 @@ interface ChargeLineFormProps {
 }
 
 export function ChargeLineForm({ disabled = false, onSubmit }: ChargeLineFormProps) {
+  const { t } = useLanguage()
   const [binBay, setBinBay] = useState('')
   const [materialCode, setMaterialCode] = useState('')
   const [grossKg, setGrossKg] = useState('')
@@ -80,7 +82,7 @@ export function ChargeLineForm({ disabled = false, onSubmit }: ChargeLineFormPro
       <NumericField id="tare" labelEn="Tare kg" labelHi="टेयर किग्रा" value={tareKg} onChange={setTareKg} disabled={disabled} required />
 
       <div className="rounded-xl bg-slate-900/60 px-4 py-3">
-        <p className="text-sm text-slate-400">Net kg (auto) · नेट किग्रा</p>
+        <p className="text-sm text-slate-400">{t('Net kg (auto)', 'नेट किग्रा')}</p>
         <p className="text-2xl font-bold text-emerald-400">{netKg != null ? netKg.toFixed(2) : '—'}</p>
       </div>
 
@@ -95,15 +97,17 @@ export function ChargeLineForm({ disabled = false, onSubmit }: ChargeLineFormPro
         onClick={() => void handleSave()}
         className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
       >
-        Save Charge · चार्ज सहेजें
+        {t('Save Charge', 'चार्ज सहेजें')}
       </button>
     </section>
   )
 }
 
 export function ChargeLineList({ lines }: { lines: ChargeLine[] }) {
+  const { t } = useLanguage()
+
   if (lines.length === 0) {
-    return <p className="text-sm text-slate-400">No charge lines · कोई चार्ज नहीं</p>
+    return <p className="text-sm text-slate-400">{t('No charge lines', 'कोई चार्ज नहीं')}</p>
   }
 
   return (
@@ -113,7 +117,7 @@ export function ChargeLineList({ lines }: { lines: ChargeLine[] }) {
           <p className="font-semibold text-slate-100">{line.material_code} · {line.bin_bay}</p>
           <p className="text-slate-400">
             Gross {line.gross_kg} − Tare {line.tare_kg} = Net {line.net_kg} kg
-            {line.is_mid_heat_addition ? ' · Mid-heat' : ''}
+            {line.is_mid_heat_addition ? t(' · Mid-heat', ' · मध्य-हीट') : ''}
           </p>
         </li>
       ))}

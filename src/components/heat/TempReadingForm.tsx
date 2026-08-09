@@ -3,6 +3,7 @@ import type { TempCheckpoint } from '../../types/heat'
 import { TEMP_CHECKPOINTS } from '../../types/heat'
 import { TEMP_CHECKPOINT_META } from '../../lib/heatLabels'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
 interface TempReadingFormProps {
@@ -16,6 +17,7 @@ interface TempReadingFormProps {
 }
 
 export function TempReadingForm({ disabled = false, onSubmit }: TempReadingFormProps) {
+  const { t } = useLanguage()
   const [checkpoint, setCheckpoint] = useState<TempCheckpoint>('melting')
   const [value, setValue] = useState('')
   const [specMin, setSpecMin] = useState('')
@@ -55,7 +57,7 @@ export function TempReadingForm({ disabled = false, onSubmit }: TempReadingFormP
         >
           {TEMP_CHECKPOINTS.map((cp) => (
             <option key={cp} value={cp}>
-              {TEMP_CHECKPOINT_META[cp].en} · {TEMP_CHECKPOINT_META[cp].hi}
+              {t(TEMP_CHECKPOINT_META[cp].en, TEMP_CHECKPOINT_META[cp].hi)}
             </option>
           ))}
         </select>
@@ -71,7 +73,7 @@ export function TempReadingForm({ disabled = false, onSubmit }: TempReadingFormP
         onClick={() => void handleSave()}
         className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
       >
-        Save Temp · तापमान सहेजें
+        {t('Save Temp', 'तापमान सहेजें')}
       </button>
     </section>
   )

@@ -1,4 +1,5 @@
 import type { BatchPlan } from '../../types/batchPlan'
+import { useLanguage } from '../../context/LanguageContext'
 
 interface BatchPlanListProps {
   plans: BatchPlan[]
@@ -7,11 +8,12 @@ interface BatchPlanListProps {
 }
 
 export function BatchPlanList({ plans, selectedId, onSelect }: BatchPlanListProps) {
+  const { t } = useLanguage()
+
   if (plans.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-600 p-6 text-center text-slate-400">
-        <p>No batch plans yet</p>
-        <p className="text-sm">अभी कोई बैच योजना नहीं</p>
+        <p>{t('No batch plans yet', 'अभी कोई बैच योजना नहीं')}</p>
       </div>
     )
   }
@@ -42,11 +44,11 @@ export function BatchPlanList({ plans, selectedId, onSelect }: BatchPlanListProp
                   <p className="capitalize text-slate-300">{plan.status}</p>
                   {plan.owner_reviewed ? (
                     <span className="mt-1 inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
-                      Reviewed · समीक्षित
+                      {t('Reviewed', 'समीक्षित')}
                     </span>
                   ) : (
                     <span className="mt-1 inline-block rounded-full bg-slate-600/40 px-2 py-0.5 text-xs text-slate-300">
-                      Not reviewed · समीक्षा बाकी
+                      {t('Not reviewed', 'समीक्षा बाकी')}
                     </span>
                   )}
                   {plan._pending && (

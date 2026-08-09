@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Heat } from '../../types/heat'
 import { BilingualText } from '../ui/BilingualText'
+import { useLanguage } from '../../context/LanguageContext'
 
 interface MakerCheckerFormsProps {
   heat: Heat | null
@@ -27,6 +28,7 @@ export function MakerCheckerForms({
   pendingCancels,
   pendingCorrections,
 }: MakerCheckerFormsProps) {
+  const { t } = useLanguage()
   const [cancelReason, setCancelReason] = useState('')
   const [correctionNo, setCorrectionNo] = useState('')
   const [correctionReason, setCorrectionReason] = useState('')
@@ -41,7 +43,7 @@ export function MakerCheckerForms({
             onChange={(e) => setCancelReason(e.target.value)}
             rows={3}
             className="w-full rounded-xl border border-slate-600 bg-slate-900 px-4 py-3"
-            placeholder="Reason · कारण"
+            placeholder={t('Reason', 'कारण')}
           />
           <button
             type="button"
@@ -49,7 +51,7 @@ export function MakerCheckerForms({
             onClick={() => void onCancelRequest(cancelReason).then(() => setCancelReason(''))}
             className="min-h-12 w-full rounded-xl bg-red-600/80 font-semibold disabled:opacity-50"
           >
-            Submit cancel request · अनुरोध भेजें
+            {t('Submit cancel request', 'अनुरोध भेजें')}
           </button>
         </section>
       )}
@@ -61,7 +63,7 @@ export function MakerCheckerForms({
           <input
             value={correctionNo}
             onChange={(e) => setCorrectionNo(e.target.value)}
-            placeholder="Requested heat no · अनुरोधित नंबर"
+            placeholder={t('Requested heat no', 'अनुरोधित नंबर')}
             className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-900 px-4"
           />
           <textarea
@@ -69,7 +71,7 @@ export function MakerCheckerForms({
             onChange={(e) => setCorrectionReason(e.target.value)}
             rows={2}
             className="w-full rounded-xl border border-slate-600 bg-slate-900 px-4 py-3"
-            placeholder="Reason · कारण"
+            placeholder={t('Reason', 'कारण')}
           />
           <button
             type="button"
@@ -82,7 +84,7 @@ export function MakerCheckerForms({
             }
             className="min-h-12 w-full rounded-xl border border-amber-500/40 bg-amber-950/30 font-semibold disabled:opacity-50"
           >
-            Submit correction request · सुधार अनुरोध
+            {t('Submit correction request', 'सुधार अनुरोध')}
           </button>
         </section>
       )}
