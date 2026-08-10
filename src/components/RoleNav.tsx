@@ -4,7 +4,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { BilingualText } from './ui/BilingualText'
 import { LanguageToggle } from './ui/LanguageToggle'
 
-export type AppScreen = 'batch' | 'heat' | 'cycle' | 'spectro' | 'pit'
+export type AppScreen = 'batch' | 'heat' | 'spectro' | 'pit'
 
 interface NavItem {
   id: AppScreen
@@ -21,28 +21,25 @@ interface RoleNavProps {
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   supervisor: [
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
-    { id: 'heat', en: 'Charging', hi: 'चार्जिंग' },
-    { id: 'cycle', en: 'Cycle Log', hi: 'साइकिल' },
+    { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   qa: [
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
-    { id: 'heat', en: 'Charging', hi: 'चार्जिंग' },
+    { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   plant_head: [
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
-    { id: 'heat', en: 'Charging', hi: 'चार्जिंग' },
-    { id: 'cycle', en: 'Cycle Log', hi: 'साइकिल' },
+    { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   admin_owner: [
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
-    { id: 'heat', en: 'Charging', hi: 'चार्जिंग' },
-    { id: 'cycle', en: 'Cycle Log', hi: 'साइकिल' },
+    { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],

@@ -1,6 +1,14 @@
 # Module — Heat Charging & Cycle Log
-### Screens 3–4 · Tables: `furnace.heats`, `furnace.charge_lines`, `furnace.cycle_log`,
+### Screen 3 (combined) · Tables: `furnace.heats`, `furnace.charge_lines`, `furnace.cycle_log`,
 ### `furnace.heat_cancel_requests`, `furnace.heat_no_corrections`
+
+> **Updated:** Charging and Cycle Log are one combined screen, not two separate tabs. If
+> there's no active heat on the selected furnace, show the "Start New Heat" form. Once a heat
+> is active, show one combined view with the 9-stage cycle-tap grid and the charge-line entry
+> form together — charge lines can be entered at any point during the active heat, not locked
+> to a specific cycle stage. Plan-vs-actual variance stays visible in this combined view. Access
+> rules are unchanged by this merge: Supervisor enters both; QA has view-only access to
+> charging and no access to cycle/temps; Plant Head/Owner view both.
 
 > Build from this file + `03a_Furnace_DataModel.md` + `03b_Furnace_Roles_Permissions.md`.
 > This is the most control-heavy module in the app — read it fully before writing any code

@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { RoleNav, type AppScreen } from './components/RoleNav'
 import { BatchPlanPage } from './pages/BatchPlanPage'
-import { CycleLogPage } from './pages/CycleLogPage'
 import { HeatChargingPage } from './pages/HeatChargingPage'
 import { PitFurnacePage } from './pages/PitFurnacePage'
 import { SpectroPage } from './pages/SpectroPage'
@@ -21,8 +20,6 @@ function AppShell() {
         return <BatchPlanPage />
       case 'heat':
         return <HeatChargingPage />
-      case 'cycle':
-        return <CycleLogPage />
       case 'spectro':
         return <SpectroPage />
       case 'pit':
