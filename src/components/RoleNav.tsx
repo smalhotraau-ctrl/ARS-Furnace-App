@@ -2,6 +2,7 @@ import type { UserRole } from '../types/auth'
 import { ROLE_LABELS } from '../types/auth'
 import { useLanguage } from '../context/LanguageContext'
 import { BilingualText } from './ui/BilingualText'
+import { DevRoleSwitcher } from './ui/DevRoleSwitcher'
 import { LanguageToggle } from './ui/LanguageToggle'
 
 export type AppScreen = 'batch' | 'heat' | 'spectro' | 'pit'
@@ -13,6 +14,7 @@ interface NavItem {
 }
 
 interface RoleNavProps {
+  userId: string
   role: UserRole
   activeScreen: AppScreen
   onNavigate: (screen: AppScreen) => void
@@ -45,7 +47,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   ],
 }
 
-export function RoleNav({ role, activeScreen, onNavigate }: RoleNavProps) {
+export function RoleNav({ userId, role, activeScreen, onNavigate }: RoleNavProps) {
   const { t } = useLanguage()
   const items = NAV_BY_ROLE[role]
 
@@ -61,6 +63,7 @@ export function RoleNav({ role, activeScreen, onNavigate }: RoleNavProps) {
             <p className="text-sm font-medium text-slate-200">{ROLE_LABELS[role].en}</p>
             <p className="text-xs text-slate-400">{ROLE_LABELS[role].hi}</p>
           </div>
+          <DevRoleSwitcher userId={userId} currentRole={role} />
           <ul className="flex flex-wrap gap-2">
             {items.map((item) => {
               const active = activeScreen === item.id
