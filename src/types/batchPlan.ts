@@ -45,6 +45,11 @@ export interface FurnaceOption {
   type: string
 }
 
+export interface MaterialOption {
+  code: string
+  name: string
+}
+
 export interface MaterialStdRow {
   material_code: string
   element: string

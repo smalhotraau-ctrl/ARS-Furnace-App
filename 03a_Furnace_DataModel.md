@@ -24,6 +24,13 @@ furnace.grade_specs(id, grade_code, element, min_pct, max_pct, active, supersede
    -- superseded_by: self-reference to the grade_code that replaced this one, for UI display
    --    ("this grade was replaced by X"). NULL while still current.
 
+furnace.materials(id, code, name, active, created_by, created_at, updated_by, updated_at)
+   -- reference list of raw material codes, used to drive the Material dropdown on Charging's
+   -- Add Charge Line form (previously free text — see database/10_add_materials_master.sql).
+   -- Master Admin data: Plant Head proposes (maker) via master_admin_change_requests,
+   -- Owner approves (checker). Same pattern as furnaces/grade_specs/material_std_composition/
+   -- material_yield_standards.
+
 furnace.material_std_composition(id, material_code, element, std_pct)
    -- standard composition per RM material category, used for expected-composition calc at
    -- batch-planning time. Unchanged from v1.
@@ -245,7 +252,7 @@ furnace.approval_settings(id, action_type, requires_owner_approval boolean defau
 furnace.master_admin_change_requests(id, target_table, target_id NULL, action, payload jsonb,
    requested_by, requested_at, status, decided_by NULL, decided_at NULL, decision_note NULL)
    -- generic request wrapper for Plant-Head-proposed changes to rate_master, grade_specs,
-   --    furnaces, material_std_composition, and material_yield_standards.
+   --    furnaces, materials, material_std_composition, and material_yield_standards.
    -- action: create | update
    -- if approval_settings.requires_owner_approval = false for 'master_admin_change', the
    --    change applies immediately and this row is auto-marked approved, purely for audit.

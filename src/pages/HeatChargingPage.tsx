@@ -7,6 +7,7 @@ import { MakerCheckerForms } from '../components/heat/MakerCheckerForms'
 import { PlanVariancePanel } from '../components/heat/PlanVariancePanel'
 import { StartHeatForm } from '../components/heat/StartHeatForm'
 import { TempReadingForm } from '../components/heat/TempReadingForm'
+import { TempReadingsList } from '../components/heat/TempReadingsList'
 import { SavedConfirmation } from '../components/ui/SavedConfirmation'
 import { BilingualText } from '../components/ui/BilingualText'
 import { useLanguage } from '../context/LanguageContext'
@@ -16,6 +17,7 @@ import {
   computePlanVariance,
   decideCancelRequest,
   decideHeatNoCorrection,
+  fetchActiveMaterials,
   fetchBatchPlansForHeat,
   fetchCancelRequests,
   fetchChargeLines,
@@ -33,7 +35,7 @@ import {
   syncHeatQueue,
 } from '../lib/heatService'
 import type { BatchPlan } from '../types/batchPlan'
-import type { FurnaceOption } from '../types/batchPlan'
+import type { FurnaceOption, MaterialOption } from '../types/batchPlan'
 import type { ChargeLine, CycleLogEntry, Heat, TempReading } from '../types/heat'
 import { isActiveHeat } from '../types/heat'
 
@@ -54,6 +56,7 @@ export function HeatChargingPage() {
   const [cycleEntries, setCycleEntries] = useState<CycleLogEntry[]>([])
   const [tempReadings, setTempReadings] = useState<TempReading[]>([])
   const [furnaces, setFurnaces] = useState<FurnaceOption[]>([])
+  const [materials, setMaterials] = useState<MaterialOption[]>([])
   const [batchPlans, setBatchPlans] = useState<BatchPlan[]>([])
   const [pendingCancels, setPendingCancels] = useState<Array<{ id: string; heat_id: string; reason: string }>>([])
   const [pendingCorrections, setPendingCorrections] = useState<
@@ -82,13 +85,15 @@ export function HeatChargingPage() {
   const refreshData = useCallback(async () => {
     try {
       if (navigator.onLine) await syncHeatQueue()
-      const [nextHeats, nextFurnaces, nextPlans] = await Promise.all([
+      const [nextHeats, nextFurnaces, nextMaterials, nextPlans] = await Promise.all([
         navigator.onLine ? fetchHeats() : Promise.resolve(loadLocalHeats()),
         fetchMainFurnacesForHeat().catch(() => []),
+        fetchActiveMaterials().catch(() => []),
         fetchBatchPlansForHeat().catch(() => []),
       ])
       setHeats(nextHeats)
       setFurnaces(nextFurnaces)
+      setMaterials(nextMaterials)
       setBatchPlans(nextPlans)
 
       if (canDecide && navigator.onLine) {
@@ -203,24 +208,13 @@ export function HeatChargingPage() {
                 />
               )}
 
-              {tempReadings.length > 0 && (
-                <section className="rounded-2xl border border-slate-700 bg-slate-800/60 p-5">
-                  <BilingualText as="h3" en="Recorded Temperatures" hi="दर्ज तापमान" className="mb-3 font-bold" />
-                  <ul className="space-y-2 text-sm">
-                    {tempReadings.map((r) => (
-                      <li key={r.id} className="flex justify-between rounded-lg bg-slate-900/50 px-3 py-2">
-                        <span>{r.checkpoint}</span>
-                        <span>{r.value}°</span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
+              <TempReadingsList readings={tempReadings} />
             </>
           )}
 
           {canStartAndCharge && activeSelected && (
             <ChargeLineForm
+              materials={materials}
               onSubmit={async (values) => {
                 const line = await addChargeLine(user!, { ...values, heat_id: selectedHeat.id })
                 setChargeLines((prev) => [line, ...prev])

@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import type { ChargeLine } from '../../types/heat'
+import type { MaterialOption } from '../../types/batchPlan'
 import { BilingualText } from '../ui/BilingualText'
 import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
 interface ChargeLineFormProps {
+  materials: MaterialOption[]
   disabled?: boolean
   onSubmit: (values: {
     bin_bay: string
@@ -16,7 +18,7 @@ interface ChargeLineFormProps {
   }) => Promise<void>
 }
 
-export function ChargeLineForm({ disabled = false, onSubmit }: ChargeLineFormProps) {
+export function ChargeLineForm({ materials, disabled = false, onSubmit }: ChargeLineFormProps) {
   const { t } = useLanguage()
   const [binBay, setBinBay] = useState('')
   const [materialCode, setMaterialCode] = useState('')
@@ -70,12 +72,17 @@ export function ChargeLineForm({ disabled = false, onSubmit }: ChargeLineFormPro
 
       <label className="block space-y-2">
         <BilingualText as="span" en="Material *" hi="सामग्री" className="font-semibold" />
-        <input
+        <select
           value={materialCode}
           disabled={disabled}
           onChange={(e) => setMaterialCode(e.target.value)}
           className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
-        />
+        >
+          <option value="">{t('Select', 'चुनें')}</option>
+          {materials.map((m) => (
+            <option key={m.code} value={m.code}>{m.code} — {m.name}</option>
+          ))}
+        </select>
       </label>
 
       <NumericField id="gross" labelEn="Gross kg" labelHi="ग्रॉस किग्रा" value={grossKg} onChange={setGrossKg} disabled={disabled} required />

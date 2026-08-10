@@ -47,7 +47,7 @@ import type {
 } from '../types/heat'
 import { isActiveHeat } from '../types/heat'
 import type { BatchPlan } from '../types/batchPlan'
-import type { FurnaceOption } from '../types/batchPlan'
+import type { FurnaceOption, MaterialOption } from '../types/batchPlan'
 import { parseExpectedComposition, parsePlannedLines } from '../types/batchPlan'
 
 const furnace = () => supabase.schema('furnace')
@@ -437,6 +437,17 @@ export async function fetchMainFurnacesForHeat(): Promise<FurnaceOption[]> {
 
   if (error) throw error
   return (data ?? []) as FurnaceOption[]
+}
+
+export async function fetchActiveMaterials(): Promise<MaterialOption[]> {
+  const { data, error } = await furnace()
+    .from('materials')
+    .select('code, name')
+    .eq('active', true)
+    .order('code')
+
+  if (error) throw error
+  return (data ?? []) as MaterialOption[]
 }
 
 export async function fetchBatchPlansForHeat(): Promise<BatchPlan[]> {
