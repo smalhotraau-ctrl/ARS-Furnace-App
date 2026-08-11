@@ -1,7 +1,7 @@
 import type { Heat } from '../../types/heat'
-import { isActiveHeat } from '../../types/heat'
 import { isPendingSyncHeatNo } from '../../lib/heatNumber'
 import { useLanguage } from '../../context/LanguageContext'
+import { HeatStatusBadge } from './HeatStatusBadge'
 
 interface HeatListProps {
   heats: Heat[]
@@ -42,16 +42,11 @@ export function HeatList({ heats, selectedId, onSelect }: HeatListProps) {
                     {heat.furnace_code} · {heat.grade_code}
                   </p>
                 </div>
-                <div className="text-right text-sm">
-                  <p className="capitalize text-slate-300">{heat.status}</p>
+                <div className="flex flex-col items-end gap-1 text-right text-sm">
+                  <HeatStatusBadge status={heat.status} />
                   {isPendingSyncHeatNo(heat.heat_no) && (
-                    <span className="mt-1 inline-block rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                    <span className="inline-block rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
                       {t('Pending sync', 'सिंक बाकी')}
-                    </span>
-                  )}
-                  {isActiveHeat(heat.status) && (
-                    <span className="mt-1 inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
-                      {t('Active', 'सक्रिय')}
                     </span>
                   )}
                 </div>

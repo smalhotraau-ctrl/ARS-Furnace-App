@@ -4,6 +4,7 @@ import { LanguageProvider } from './context/LanguageContext'
 import { RoleNav, type AppScreen } from './components/RoleNav'
 import { BatchPlanPage } from './pages/BatchPlanPage'
 import { HeatChargingPage } from './pages/HeatChargingPage'
+import { OutputPage } from './pages/OutputPage'
 import { PitFurnacePage } from './pages/PitFurnacePage'
 import { SpectroPage } from './pages/SpectroPage'
 
@@ -22,6 +23,8 @@ function AppShell() {
         return <HeatChargingPage />
       case 'spectro':
         return <SpectroPage />
+      case 'output':
+        return <OutputPage />
       case 'pit':
         return <PitFurnacePage />
     }

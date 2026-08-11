@@ -5,7 +5,7 @@ import { BilingualText } from './ui/BilingualText'
 import { DevRoleSwitcher } from './ui/DevRoleSwitcher'
 import { LanguageToggle } from './ui/LanguageToggle'
 
-export type AppScreen = 'batch' | 'heat' | 'spectro' | 'pit'
+export type AppScreen = 'batch' | 'heat' | 'spectro' | 'output' | 'pit'
 
 interface NavItem {
   id: AppScreen
@@ -25,24 +25,28 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
+    { id: 'output', en: 'Output & Close', hi: 'आउटपुट व समापन' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   qa: [
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
+    { id: 'output', en: 'Output & Close', hi: 'आउटपुट व समापन' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   plant_head: [
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
+    { id: 'output', en: 'Output & Close', hi: 'आउटपुट व समापन' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   admin_owner: [
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
+    { id: 'output', en: 'Output & Close', hi: 'आउटपुट व समापन' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
 }

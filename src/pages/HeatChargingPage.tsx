@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { ChargeLineForm, ChargeLineList } from '../components/heat/ChargeLineForm'
 import { CycleStageGrid } from '../components/heat/CycleStageGrid'
+import { HeatDetailHeader } from '../components/heat/HeatDetailHeader'
 import { HeatList } from '../components/heat/HeatList'
 import { MakerCheckerForms } from '../components/heat/MakerCheckerForms'
 import { PlanVariancePanel } from '../components/heat/PlanVariancePanel'
@@ -176,10 +177,7 @@ export function HeatChargingPage() {
 
       {selectedHeat && (
         <>
-          <section className="rounded-2xl border border-slate-700 bg-slate-800/60 p-5">
-            <p className="text-2xl font-bold text-emerald-400">{selectedHeat.heat_no}</p>
-            <p className="text-sm text-slate-400">{selectedHeat.status} · {selectedHeat.furnace_code} · {selectedHeat.grade_code}</p>
-          </section>
+          <HeatDetailHeader heat={selectedHeat} />
 
           {activeSelected && canViewCycle && (
             <>
