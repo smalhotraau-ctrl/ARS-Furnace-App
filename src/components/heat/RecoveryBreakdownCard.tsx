@@ -15,7 +15,7 @@ export function RecoveryBreakdownCard({ output }: RecoveryBreakdownCardProps) {
     <section className="space-y-3 rounded-2xl border border-slate-700 bg-slate-800/60 p-5">
       <BilingualText as="h3" en="Recovery Breakdown" hi="रिकवरी विवरण" className="text-lg font-bold" />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div className="rounded-xl bg-slate-900/60 p-3 text-center">
           <p className="text-xs text-slate-400">{t('Ingot', 'इंगट')}</p>
           <p className="font-bold text-slate-100">{output.ingot_kg.toFixed(2)} kg</p>
@@ -30,6 +30,11 @@ export function RecoveryBreakdownCard({ output }: RecoveryBreakdownCardProps) {
           <p className="text-xs text-slate-400">{t('Rejection', 'रिजेक्शन')}</p>
           <p className="font-bold text-slate-100">{output.rejection_kg.toFixed(2)} kg</p>
           <p className="text-sm text-emerald-400">{output.rejection_pct.toFixed(1)}%</p>
+        </div>
+        <div className="rounded-xl bg-slate-900/60 p-3 text-center">
+          <p className="text-xs text-slate-400">{t('Iron', 'आयरन')}</p>
+          <p className="font-bold text-slate-100">{output.iron_kg.toFixed(2)} kg</p>
+          <p className="text-sm text-emerald-400">{output.iron_pct.toFixed(1)}%</p>
         </div>
         <div className="rounded-xl bg-slate-900/60 p-3 text-center">
           <p className="text-xs text-slate-400">{t('Burn Loss', 'बर्न लॉस')}</p>

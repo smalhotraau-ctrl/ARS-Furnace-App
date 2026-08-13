@@ -8,12 +8,16 @@
 
 ## 1. Output entry (Supervisor)
 
-Supervisor enters `ingot_kg`, `dross_kg`, `rejection_kg`, and optionally one
+Supervisor enters `ingot_kg`, `dross_kg`, `rejection_kg`, `iron_kg`, and optionally one
 `exceptional_label` + `exceptional_kg` free-text/kg line. Numeric-only entry.
+
+`iron_kg` is a fourth core output field, equally weighted with Ingot/Dross/Rejection —
+material removed during the `iron_removal` cycle stage. Required, same as the other three;
+never optional and never folded into Dross.
 
 `burn_loss_kg` is always derived, never entered:
 ```
-burn_loss_kg = charged_net_kg − (ingot_kg + dross_kg + rejection_kg + exceptional_kg)
+burn_loss_kg = charged_net_kg − (ingot_kg + dross_kg + rejection_kg + iron_kg + exceptional_kg)
 ```
 where `charged_net_kg` = sum of `charge_lines.net_kg` for the heat.
 
@@ -44,6 +48,7 @@ Computed and stored on `heat_output` at entry time:
 | Ingot % | `ingot_kg / charged_net_kg` |
 | Dross % | `dross_kg / charged_net_kg` |
 | Rejection % | `rejection_kg / charged_net_kg` |
+| Iron % | `iron_kg / charged_net_kg` |
 | Burn loss % | `burn_loss_kg / charged_net_kg` (the balancing figure) |
 
 `exceptional_kg` is reported as a kg-only "extra" line on the output screen — it is not part
@@ -54,8 +59,8 @@ of this core percentage split.
 ### Standards table
 
 `furnace.material_yield_standards(material_code, metric, min_pct, max_pct)` — one row per
-input material per metric (`ingot_pct`/`dross_pct`/`rejection_pct`/`burn_loss_pct`). Lives in
-Master Admin: Plant Head proposes, Owner approves (see `03i`).
+input material per metric (`ingot_pct`/`dross_pct`/`rejection_pct`/`iron_pct`/`burn_loss_pct`).
+Lives in Master Admin: Plant Head proposes, Owner approves (see `03i`).
 
 ### Why per-material, not per-grade or per-furnace
 
@@ -72,7 +77,7 @@ expected_min_pct(metric) = Σ(material_i.min_pct × material_i.net_kg) / Σ(mate
 expected_max_pct(metric) = Σ(material_i.max_pct × material_i.net_kg) / Σ(material_i.net_kg)
 ```
 summed over every `charge_lines` row for that heat (including mid-heat additions), for each
-of the four metrics independently.
+of the five metrics independently.
 
 ### Flagging
 
@@ -96,7 +101,9 @@ expected_min_pct, expected_max_pct).
 - [ ] Supervisor enters output; heat does not close on entry alone.
 - [ ] QA or Plant Head must verify before `heats.status` → `Closed` and FG stock posts.
 - [ ] Burn loss is always derived, never entered directly.
-- [ ] Four recovery percentages computed and stored per the formulas above.
+- [ ] Five recovery percentages (Ingot/Dross/Rejection/Iron/Burn Loss) computed and stored per
+      the formulas above — Iron is a required core field, equally weighted, never folded into
+      Dross.
 - [ ] `material_yield_standards` maintained in Master Admin, Plant-Head-maker/Owner-checker.
 - [ ] Expected band per heat computed as a kg-weighted blend across all charged materials.
 - [ ] Out-of-range metrics flagged to `heat_output_flags`, visible only on Plant Head/Owner

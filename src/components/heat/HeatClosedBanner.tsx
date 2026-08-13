@@ -30,7 +30,7 @@ export function HeatClosedBanner({ heat, output }: HeatClosedBannerProps) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div className="rounded-xl bg-emerald-900/50 p-3">
           <p className="text-xs text-emerald-300">{t('Ingot', 'इंगट')}</p>
           <p className="text-lg font-bold text-emerald-50">{fmt(output.ingot_kg)} kg</p>
@@ -45,6 +45,11 @@ export function HeatClosedBanner({ heat, output }: HeatClosedBannerProps) {
           <p className="text-xs text-emerald-300">{t('Rejection', 'रिजेक्शन')}</p>
           <p className="text-lg font-bold text-emerald-50">{fmt(output.rejection_kg)} kg</p>
           <p className="text-xs text-emerald-300">{fmt(output.rejection_pct)}%</p>
+        </div>
+        <div className="rounded-xl bg-emerald-900/50 p-3">
+          <p className="text-xs text-emerald-300">{t('Iron', 'आयरन')}</p>
+          <p className="text-lg font-bold text-emerald-50">{fmt(output.iron_kg)} kg</p>
+          <p className="text-xs text-emerald-300">{fmt(output.iron_pct)}%</p>
         </div>
         <div className="rounded-xl bg-emerald-900/50 p-3">
           <p className="text-xs text-emerald-300">{t('Burn Loss', 'बर्न लॉस')}</p>

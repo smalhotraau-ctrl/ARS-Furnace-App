@@ -37,7 +37,7 @@ furnace.material_std_composition(id, material_code, element, std_pct)
 
 furnace.material_yield_standards(id, material_code, metric, min_pct, max_pct, active,
    created_by, created_at, updated_by, updated_at)
-   -- metric: ingot_pct | dross_pct | rejection_pct | burn_loss_pct
+   -- metric: ingot_pct | dross_pct | rejection_pct | iron_pct | burn_loss_pct
    -- one row per material_code per metric. This is the "crucial feature" standards table —
    -- see 03f for how it's used to flag out-of-range heat output.
    -- Master Admin data: Plant Head proposes (maker) via master_admin_change_requests,
@@ -152,15 +152,18 @@ furnace.spectro_reports(id, heat_id, report_type, composition jsonb, sample_time
 ## 7. Output, close & yield standards
 
 ```
-furnace.heat_output(id, heat_id, ingot_kg, dross_kg, rejection_kg,
+furnace.heat_output(id, heat_id, ingot_kg, dross_kg, rejection_kg, iron_kg,
    exceptional_label NULL, exceptional_kg NULL, burn_loss_kg,
-   ingot_pct, dross_pct, rejection_pct, burn_loss_pct,
+   ingot_pct, dross_pct, rejection_pct, iron_pct, burn_loss_pct,
    verified_by NULL, verified_at NULL,
    recorded_by, recorded_at)
-   -- burn_loss_kg = charged net kg − (ingot_kg + dross_kg + rejection_kg + exceptional_kg)
+   -- iron_kg: material removed during the iron_removal cycle stage. A fourth core output
+   --    field, equally weighted with ingot/dross/rejection — required, never folded into dross.
+   -- burn_loss_kg = charged net kg − (ingot_kg + dross_kg + rejection_kg + iron_kg + exceptional_kg)
    -- ingot_pct = ingot_kg / charged net kg
    -- dross_pct = dross_kg / charged net kg
    -- rejection_pct = rejection_kg / charged net kg
+   -- iron_pct = iron_kg / charged net kg
    -- burn_loss_pct = burn_loss_kg / charged net kg (the balancing figure)
    -- exceptional_kg is a kg-only "extra" line — not part of the core % split.
    -- entered by Supervisor. Does NOT close the heat or post fg_stock on its own — see
@@ -169,8 +172,8 @@ furnace.heat_output(id, heat_id, ingot_kg, dross_kg, rejection_kg,
 
 furnace.heat_output_flags(id, heat_id, metric, actual_pct, expected_min_pct, expected_max_pct,
    acknowledged_by NULL, acknowledged_at NULL, acknowledgement_note NULL, created_at)
-   -- one row per metric (ingot_pct/dross_pct/rejection_pct/burn_loss_pct) that falls outside
-   --    its expected band at verification time.
+   -- one row per metric (ingot_pct/dross_pct/rejection_pct/iron_pct/burn_loss_pct) that falls
+   --    outside its expected band at verification time.
    -- expected_min_pct / expected_max_pct = kg-WEIGHTED BLEND of material_yield_standards
    --    across every charge_lines row for that heat, weighted by net_kg. A heat that charges
    --    3 materials gets an expected band blended from all 3 materials' standards in

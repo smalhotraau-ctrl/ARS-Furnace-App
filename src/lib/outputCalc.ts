@@ -8,6 +8,7 @@ export interface RecoveryBreakdown {
   ingot_pct: number
   dross_pct: number
   rejection_pct: number
+  iron_pct: number
   burn_loss_pct: number
 }
 
@@ -27,27 +28,30 @@ export function computeChargedNetKg(chargeLines: ChargeLine[]): number {
   return chargeLines.reduce((sum, line) => sum + line.net_kg, 0)
 }
 
-// burn_loss_kg = charged_net_kg − (ingot_kg + dross_kg + rejection_kg + exceptional_kg) — 03f §1
+// burn_loss_kg = charged_net_kg − (ingot_kg + dross_kg + rejection_kg + iron_kg + exceptional_kg) — 03f §1
 export function computeBurnLossKg(
   chargedNetKg: number,
   ingotKg: number,
   drossKg: number,
   rejectionKg: number,
+  ironKg: number,
   exceptionalKg: number,
 ): number {
-  return chargedNetKg - (ingotKg + drossKg + rejectionKg + exceptionalKg)
+  return chargedNetKg - (ingotKg + drossKg + rejectionKg + ironKg + exceptionalKg)
 }
 
-// Four recovery percentages, per 03f §3. Stored as plain percentage numbers (e.g. 92.4),
-// consistent with how grade_specs/material_yield_standards min_pct/max_pct are authored.
+// Five recovery percentages, per 03f §3 (Ingot/Dross/Rejection/Iron are equally-weighted core
+// fields, Burn Loss is the derived balancing figure). Stored as plain percentage numbers
+// (e.g. 92.4), consistent with how grade_specs/material_yield_standards min_pct/max_pct are authored.
 export function computeRecoveryBreakdown(
   chargedNetKg: number,
   ingotKg: number,
   drossKg: number,
   rejectionKg: number,
+  ironKg: number,
   exceptionalKg: number,
 ): RecoveryBreakdown {
-  const burn_loss_kg = computeBurnLossKg(chargedNetKg, ingotKg, drossKg, rejectionKg, exceptionalKg)
+  const burn_loss_kg = computeBurnLossKg(chargedNetKg, ingotKg, drossKg, rejectionKg, ironKg, exceptionalKg)
   const pct = (kg: number) => (chargedNetKg > 0 ? (kg / chargedNetKg) * 100 : 0)
 
   return {
@@ -56,6 +60,7 @@ export function computeRecoveryBreakdown(
     ingot_pct: pct(ingotKg),
     dross_pct: pct(drossKg),
     rejection_pct: pct(rejectionKg),
+    iron_pct: pct(ironKg),
     burn_loss_pct: pct(burn_loss_kg),
   }
 }
@@ -96,6 +101,7 @@ export function computeYieldFlags(
     ingot_pct: recovery.ingot_pct,
     dross_pct: recovery.dross_pct,
     rejection_pct: recovery.rejection_pct,
+    iron_pct: recovery.iron_pct,
     burn_loss_pct: recovery.burn_loss_pct,
   }
 

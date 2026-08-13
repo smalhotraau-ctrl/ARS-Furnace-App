@@ -10,17 +10,21 @@ interface OutputEntryFormProps {
     ingot_kg: number
     dross_kg: number
     rejection_kg: number
+    iron_kg: number
     exceptional_label: string | null
     exceptional_kg: number | null
   }) => Promise<void>
 }
 
 // Supervisor's output entry — numeric only, burn loss always derived, never entered (03f §1).
+// Iron is a fourth core field, equally weighted with Ingot/Dross/Rejection — required, never
+// folded into Dross.
 export function OutputEntryForm({ chargedNetKg, onSubmit }: OutputEntryFormProps) {
   const { t } = useLanguage()
   const [ingotKg, setIngotKg] = useState('')
   const [drossKg, setDrossKg] = useState('')
   const [rejectionKg, setRejectionKg] = useState('')
+  const [ironKg, setIronKg] = useState('')
   const [exceptionalLabel, setExceptionalLabel] = useState('')
   const [exceptionalKg, setExceptionalKg] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -29,14 +33,15 @@ export function OutputEntryForm({ chargedNetKg, onSubmit }: OutputEntryFormProps
     const ingot = parseNumericField(ingotKg)
     const dross = parseNumericField(drossKg)
     const rejection = parseNumericField(rejectionKg)
+    const iron = parseNumericField(ironKg)
     const exceptional = parseNumericField(exceptionalKg) ?? 0
-    if (ingot == null || dross == null || rejection == null) return null
-    return { ingot, dross, rejection, exceptional }
-  }, [ingotKg, drossKg, rejectionKg, exceptionalKg])
+    if (ingot == null || dross == null || rejection == null || iron == null) return null
+    return { ingot, dross, rejection, iron, exceptional }
+  }, [ingotKg, drossKg, rejectionKg, ironKg, exceptionalKg])
 
   const recovery = useMemo(() => {
     if (!parsed || chargedNetKg <= 0) return null
-    return computeRecoveryBreakdown(chargedNetKg, parsed.ingot, parsed.dross, parsed.rejection, parsed.exceptional)
+    return computeRecoveryBreakdown(chargedNetKg, parsed.ingot, parsed.dross, parsed.rejection, parsed.iron, parsed.exceptional)
   }, [parsed, chargedNetKg])
 
   const canSubmit = Boolean(parsed) && chargedNetKg > 0 && !submitting
@@ -49,12 +54,14 @@ export function OutputEntryForm({ chargedNetKg, onSubmit }: OutputEntryFormProps
         ingot_kg: parsed.ingot,
         dross_kg: parsed.dross,
         rejection_kg: parsed.rejection,
+        iron_kg: parsed.iron,
         exceptional_label: exceptionalLabel.trim() || null,
         exceptional_kg: exceptionalLabel.trim() ? parsed.exceptional : null,
       })
       setIngotKg('')
       setDrossKg('')
       setRejectionKg('')
+      setIronKg('')
       setExceptionalLabel('')
       setExceptionalKg('')
     } finally {
@@ -79,6 +86,7 @@ export function OutputEntryForm({ chargedNetKg, onSubmit }: OutputEntryFormProps
       <NumericField id="ingot_kg" labelEn="Ingot kg" labelHi="इंगट किग्रा" value={ingotKg} onChange={setIngotKg} required />
       <NumericField id="dross_kg" labelEn="Dross kg" labelHi="ड्रॉस किग्रा" value={drossKg} onChange={setDrossKg} required />
       <NumericField id="rejection_kg" labelEn="Rejection kg" labelHi="रिजेक्शन किग्रा" value={rejectionKg} onChange={setRejectionKg} required />
+      <NumericField id="iron_kg" labelEn="Iron kg" labelHi="आयरन किग्रा" value={ironKg} onChange={setIronKg} required />
 
       <div className="space-y-2 rounded-xl border border-dashed border-slate-600 p-4">
         <BilingualText as="p" en="Exceptional (optional)" hi="विशेष (वैकल्पिक)" className="text-sm font-semibold text-slate-300" />
@@ -101,7 +109,7 @@ export function OutputEntryForm({ chargedNetKg, onSubmit }: OutputEntryFormProps
       </div>
 
       {recovery && (
-        <div className="grid grid-cols-3 gap-2 text-center text-sm">
+        <div className="grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4">
           <div className="rounded-xl bg-slate-900/60 py-2">
             <p className="text-slate-400">{t('Ingot %', 'इंगट %')}</p>
             <p className="font-bold text-slate-100">{recovery.ingot_pct.toFixed(1)}%</p>
@@ -113,6 +121,10 @@ export function OutputEntryForm({ chargedNetKg, onSubmit }: OutputEntryFormProps
           <div className="rounded-xl bg-slate-900/60 py-2">
             <p className="text-slate-400">{t('Rejection %', 'रिजेक्शन %')}</p>
             <p className="font-bold text-slate-100">{recovery.rejection_pct.toFixed(1)}%</p>
+          </div>
+          <div className="rounded-xl bg-slate-900/60 py-2">
+            <p className="text-slate-400">{t('Iron %', 'आयरन %')}</p>
+            <p className="font-bold text-slate-100">{recovery.iron_pct.toFixed(1)}%</p>
           </div>
         </div>
       )}

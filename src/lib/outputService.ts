@@ -78,7 +78,14 @@ export async function fetchOpenYieldFlags(): Promise<HeatOutputFlag[]> {
 export async function saveHeatOutput(
   user: AppUser,
   heat: Heat,
-  values: { ingot_kg: number; dross_kg: number; rejection_kg: number; exceptional_label: string | null; exceptional_kg: number | null },
+  values: {
+    ingot_kg: number
+    dross_kg: number
+    rejection_kg: number
+    iron_kg: number
+    exceptional_label: string | null
+    exceptional_kg: number | null
+  },
   chargedNetKg: number,
 ): Promise<HeatOutput> {
   const now = new Date().toISOString()
@@ -88,6 +95,7 @@ export async function saveHeatOutput(
     values.ingot_kg,
     values.dross_kg,
     values.rejection_kg,
+    values.iron_kg,
     values.exceptional_kg ?? 0,
   )
 
@@ -96,12 +104,14 @@ export async function saveHeatOutput(
     ingot_kg: values.ingot_kg,
     dross_kg: values.dross_kg,
     rejection_kg: values.rejection_kg,
+    iron_kg: values.iron_kg,
     exceptional_label: values.exceptional_label,
     exceptional_kg: values.exceptional_kg,
     burn_loss_kg: recovery.burn_loss_kg,
     ingot_pct: recovery.ingot_pct,
     dross_pct: recovery.dross_pct,
     rejection_pct: recovery.rejection_pct,
+    iron_pct: recovery.iron_pct,
     burn_loss_pct: recovery.burn_loss_pct,
     recorded_by: user.id,
   }
@@ -147,6 +157,7 @@ export async function verifyAndCloseHeatOutput(
     ingot_pct: output.ingot_pct,
     dross_pct: output.dross_pct,
     rejection_pct: output.rejection_pct,
+    iron_pct: output.iron_pct,
     burn_loss_pct: output.burn_loss_pct,
   }
   const candidates = computeYieldFlags(recovery, chargeLines, yieldStandards)

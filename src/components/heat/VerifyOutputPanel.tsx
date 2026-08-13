@@ -29,6 +29,7 @@ export function VerifyOutputPanel({ output, chargeLines, yieldStandards, showFla
       ingot_pct: output.ingot_pct,
       dross_pct: output.dross_pct,
       rejection_pct: output.rejection_pct,
+      iron_pct: output.iron_pct,
       burn_loss_pct: output.burn_loss_pct,
     }
     return computeYieldFlags(recovery, chargeLines, yieldStandards)
