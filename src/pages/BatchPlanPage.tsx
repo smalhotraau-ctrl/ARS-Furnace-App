@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { BatchPlanDetail } from '../components/batch/BatchPlanDetail'
 import { BatchPlanForm } from '../components/batch/BatchPlanForm'
@@ -9,6 +9,7 @@ import { BilingualText } from '../components/ui/BilingualText'
 import { useLanguage } from '../context/LanguageContext'
 import {
   acknowledgeBatchPlan,
+  fetchActiveMaterials,
   fetchBatchPlans,
   fetchGradeCodes,
   fetchGradeSpecs,
@@ -20,7 +21,7 @@ import {
   syncBatchPendingActions,
   updateBatchPlan,
 } from '../lib/batchPlanService'
-import type { BatchPlan, FurnaceOption, GradeSpecRow, MaterialStdRow } from '../types/batchPlan'
+import type { BatchPlan, FurnaceOption, GradeSpecRow, MaterialOption, MaterialStdRow } from '../types/batchPlan'
 
 export function BatchPlanPage() {
   const { t } = useLanguage()
@@ -31,6 +32,7 @@ export function BatchPlanPage() {
   const [selectedPlan, setSelectedPlan] = useState<BatchPlan | null>(null)
   const [furnaces, setFurnaces] = useState<FurnaceOption[]>([])
   const [gradeCodes, setGradeCodes] = useState<string[]>([])
+  const [materials, setMaterials] = useState<MaterialOption[]>([])
   const [materialStd, setMaterialStd] = useState<MaterialStdRow[]>([])
   const [gradeSpecs, setGradeSpecs] = useState<GradeSpecRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,27 +45,24 @@ export function BatchPlanPage() {
   const canOwnerReview = role === 'admin_owner'
   const isViewOnly = role === 'supervisor' || role === 'qa' || role === 'admin_owner'
 
-  const materialCodes = useMemo(
-    () => [...new Set(materialStd.map((row) => row.material_code))].sort(),
-    [materialStd],
-  )
-
   const refreshData = useCallback(async () => {
     try {
       if (navigator.onLine) {
         await syncBatchPendingActions()
       }
-      const [nextPlans, nextFurnaces, nextGrades, nextMaterialStd, nextGradeSpecs] =
+      const [nextPlans, nextFurnaces, nextGrades, nextMaterials, nextMaterialStd, nextGradeSpecs] =
         await Promise.all([
           navigator.onLine ? fetchBatchPlans() : Promise.resolve(loadLocalBatchPlans()),
           fetchMainFurnaces().catch(() => [] as FurnaceOption[]),
           fetchGradeCodes().catch(() => [] as string[]),
+          fetchActiveMaterials().catch(() => [] as MaterialOption[]),
           fetchMaterialStdComposition().catch(() => [] as MaterialStdRow[]),
           fetchGradeSpecs().catch(() => [] as GradeSpecRow[]),
         ])
       setPlans(nextPlans)
       setFurnaces(nextFurnaces)
       setGradeCodes(nextGrades)
+      setMaterials(nextMaterials)
       setMaterialStd(nextMaterialStd)
       setGradeSpecs(nextGradeSpecs)
       setPendingUploads(getBatchPendingCount())
@@ -131,7 +130,7 @@ export function BatchPlanPage() {
         <BatchPlanForm
           furnaces={furnaces}
           gradeCodes={gradeCodes}
-          materialCodes={materialCodes}
+          materials={materials}
           materialStd={materialStd}
           gradeSpecs={gradeSpecs}
           onCancel={() => setCreating(false)}
@@ -149,7 +148,7 @@ export function BatchPlanPage() {
         <BatchPlanForm
           furnaces={furnaces}
           gradeCodes={gradeCodes}
-          materialCodes={materialCodes}
+          materials={materials}
           materialStd={materialStd}
           gradeSpecs={gradeSpecs}
           initialPlan={selectedPlan}

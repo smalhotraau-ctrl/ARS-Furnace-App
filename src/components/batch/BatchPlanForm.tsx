@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { BatchPlan, FurnaceOption } from '../../types/batchPlan'
-import type { GradeSpecRow, MaterialStdRow, PlannedLine } from '../../types/batchPlan'
+import type { GradeSpecRow, MaterialOption, MaterialStdRow, PlannedLine } from '../../types/batchPlan'
 import { computeExpectedComposition } from '../../lib/compositionCalc'
 import { ExpectedCompositionPanel } from './ExpectedCompositionPanel'
 import { PlannedLinesEditor } from './PlannedLinesEditor'
@@ -10,7 +10,7 @@ import { useLanguage } from '../../context/LanguageContext'
 interface BatchPlanFormProps {
   furnaces: FurnaceOption[]
   gradeCodes: string[]
-  materialCodes: string[]
+  materials: MaterialOption[]
   materialStd: MaterialStdRow[]
   gradeSpecs: GradeSpecRow[]
   initialPlan?: BatchPlan | null
@@ -32,7 +32,7 @@ function todayIsoDate() {
 export function BatchPlanForm({
   furnaces,
   gradeCodes,
-  materialCodes,
+  materials,
   materialStd,
   gradeSpecs,
   initialPlan = null,
@@ -151,7 +151,7 @@ export function BatchPlanForm({
         <div className="space-y-5">
           <PlannedLinesEditor
             lines={plannedLines}
-            materialCodes={materialCodes}
+            materials={materials}
             disabled={disabled}
             onChange={setPlannedLines}
           />

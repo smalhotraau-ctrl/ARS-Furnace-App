@@ -96,6 +96,10 @@ export function loadLocalBatchPlans(): BatchPlan[] {
   return getCachedBatchPlans()
 }
 
+// Same furnace.materials master used by Charging's Material dropdown — a plan should never
+// be able to reference a material that doesn't actually exist in the materials master.
+export { fetchActiveMaterials } from './heatService'
+
 export async function saveBatchPlan(user: AppUser, payload: Omit<BatchPlanInsert, 'created_by' | 'status'>): Promise<BatchPlan> {
   const insert: BatchPlanInsert = {
     ...payload,

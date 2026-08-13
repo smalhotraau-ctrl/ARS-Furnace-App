@@ -1,19 +1,22 @@
 import { useState } from 'react'
-import type { PlannedLine } from '../../types/batchPlan'
+import type { MaterialOption, PlannedLine } from '../../types/batchPlan'
 import { BilingualText } from '../ui/BilingualText'
 import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
 interface PlannedLinesEditorProps {
   lines: PlannedLine[]
-  materialCodes: string[]
+  materials: MaterialOption[]
   disabled?: boolean
   onChange: (lines: PlannedLine[]) => void
 }
 
+// Material selection pulls from the same furnace.materials master used by Charging's Material
+// dropdown (see ChargeLineForm) — a plan should never reference a material that doesn't
+// actually exist in the materials master, so there is no free-text fallback here.
 export function PlannedLinesEditor({
   lines,
-  materialCodes,
+  materials,
   disabled = false,
   onChange,
 }: PlannedLinesEditorProps) {
@@ -48,27 +51,21 @@ export function PlannedLinesEditor({
         <div className="space-y-3 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
           <label className="block space-y-2">
             <BilingualText as="span" en="Material" hi="सामग्री" className="font-semibold" />
-            {materialCodes.length > 0 ? (
-              <select
-                value={materialCode}
-                onChange={(e) => setMaterialCode(e.target.value)}
-                className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
-              >
-                <option value="">{t('Select material', 'सामग्री चुनें')}</option>
-                {materialCodes.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                value={materialCode}
-                onChange={(e) => setMaterialCode(e.target.value)}
-                placeholder="Material code"
-                className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
-              />
-            )}
+            <select
+              value={materialCode}
+              disabled={materials.length === 0}
+              onChange={(e) => setMaterialCode(e.target.value)}
+              className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg disabled:opacity-60"
+            >
+              <option value="">
+                {materials.length > 0 ? t('Select material', 'सामग्री चुनें') : t('No materials available', 'कोई सामग्री उपलब्ध नहीं')}
+              </option>
+              {materials.map((m) => (
+                <option key={m.code} value={m.code}>
+                  {m.code} — {m.name}
+                </option>
+              ))}
+            </select>
           </label>
           <NumericField
             id="planned-kg"
