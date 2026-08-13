@@ -5,7 +5,7 @@ import { BilingualText } from './ui/BilingualText'
 import { DevRoleSwitcher } from './ui/DevRoleSwitcher'
 import { LanguageToggle } from './ui/LanguageToggle'
 
-export type AppScreen = 'batch' | 'heat' | 'spectro' | 'output' | 'pit'
+export type AppScreen = 'batch' | 'heat' | 'spectro' | 'output' | 'bundling' | 'dispatch' | 'pit'
 
 interface NavItem {
   id: AppScreen
@@ -26,6 +26,8 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
     { id: 'output', en: 'Output & Close', hi: 'आउटपुट व समापन' },
+    { id: 'bundling', en: 'Bundling', hi: 'बंडलिंग' },
+    { id: 'dispatch', en: 'Dispatch', hi: 'डिस्पैच' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   qa: [
@@ -33,6 +35,8 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
     { id: 'output', en: 'Output & Close', hi: 'आउटपुट व समापन' },
+    { id: 'bundling', en: 'Bundling', hi: 'बंडलिंग' },
+    { id: 'dispatch', en: 'Dispatch', hi: 'डिस्पैच' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   plant_head: [
@@ -40,6 +44,8 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
     { id: 'output', en: 'Output & Close', hi: 'आउटपुट व समापन' },
+    { id: 'bundling', en: 'Bundling', hi: 'बंडलिंग' },
+    { id: 'dispatch', en: 'Dispatch', hi: 'डिस्पैच' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
   admin_owner: [
@@ -47,6 +53,8 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल' },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो' },
     { id: 'output', en: 'Output & Close', hi: 'आउटपुट व समापन' },
+    { id: 'bundling', en: 'Bundling', hi: 'बंडलिंग' },
+    { id: 'dispatch', en: 'Dispatch', hi: 'डिस्पैच' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
   ],
 }

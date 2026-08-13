@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { RoleNav, type AppScreen } from './components/RoleNav'
 import { BatchPlanPage } from './pages/BatchPlanPage'
+import { BundlingPage } from './pages/BundlingPage'
+import { DispatchPage } from './pages/DispatchPage'
 import { HeatChargingPage } from './pages/HeatChargingPage'
 import { OutputPage } from './pages/OutputPage'
 import { PitFurnacePage } from './pages/PitFurnacePage'
@@ -25,6 +27,10 @@ function AppShell() {
         return <SpectroPage />
       case 'output':
         return <OutputPage />
+      case 'bundling':
+        return <BundlingPage />
+      case 'dispatch':
+        return <DispatchPage />
       case 'pit':
         return <PitFurnacePage />
     }
