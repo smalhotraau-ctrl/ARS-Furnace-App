@@ -1,14 +1,38 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import type { UserRole } from '../../types/auth'
+import type { AppUser, UserRole } from '../../types/auth'
 import { ROLE_LABELS } from '../../types/auth'
 import { useLanguage } from '../../context/LanguageContext'
+import { syncHeatQueue } from '../../lib/heatService'
+import { syncOutputQueue } from '../../lib/outputService'
+import { syncBatchPendingActions } from '../../lib/batchPlanService'
+import { syncDispatchQueue } from '../../lib/dispatchService'
+import { syncSpectroQueue } from '../../lib/spectroService'
+import { syncPendingActions as syncPitQueue } from '../../lib/pitFurnaceService'
 
 const ALL_ROLES: UserRole[] = ['supervisor', 'qa', 'plant_head', 'admin_owner']
 
 interface DevRoleSwitcherProps {
   userId: string
   currentRole: UserRole
+}
+
+// Every RLS write-check in this app (has_role / current_user_role()) evaluates the CURRENT
+// row in common.users at the moment the request actually executes on the server, not the role
+// at the moment the user clicked "save". Since this dev-only control is the only way to change
+// role — for one real test account — anything still sitting in an offline queue (e.g. a Plant
+// Head's cancel request that hasn't synced yet) would silently fail its RLS check and vanish
+// forever if the role changes out from under it before the background sync completes. Flush
+// every module's queue under the OLD role first, so nothing queued gets orphaned by the switch.
+async function flushAllQueuesBeforeSwitch(user: AppUser) {
+  await Promise.allSettled([
+    syncHeatQueue(),
+    syncOutputQueue(),
+    syncBatchPendingActions(),
+    syncDispatchQueue(),
+    syncSpectroQueue(),
+    syncPitQueue(user),
+  ])
 }
 
 // ⚠️ DEV ONLY — temporary testing convenience.
@@ -29,6 +53,11 @@ export function DevRoleSwitcher({ userId, currentRole }: DevRoleSwitcherProps) {
   async function handleChange(nextRole: UserRole) {
     if (nextRole === currentRole || updating) return
     setUpdating(true)
+
+    if (navigator.onLine) {
+      await flushAllQueuesBeforeSwitch({ id: userId, username: '', role: currentRole })
+    }
+
     const { error } = await supabase
       .schema('common')
       .from('users')

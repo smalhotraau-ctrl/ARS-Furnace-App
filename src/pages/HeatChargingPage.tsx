@@ -28,6 +28,7 @@ import {
   fetchMainFurnacesForHeat,
   fetchTempReadings,
   finishCycleStage,
+  getHeatPendingCount,
   loadLocalHeats,
   startCycleStage,
   startHeat,
@@ -65,6 +66,7 @@ export function HeatChargingPage() {
   >([])
   const [savedVisible, setSavedVisible] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [pendingUploads, setPendingUploads] = useState(getHeatPendingCount())
 
   const canStartAndCharge = role === 'supervisor'
   const canViewCharging = role === 'supervisor' || role === 'qa' || role === 'plant_head' || role === 'admin_owner'
@@ -72,6 +74,7 @@ export function HeatChargingPage() {
   const canRequestCancel = role === 'plant_head'
   const canRequestCorrection = role === 'plant_head'
   const canDecide = role === 'admin_owner'
+  const showPendingIndicator = role === 'plant_head' || role === 'admin_owner'
 
   const linkedPlan = useMemo(
     () => batchPlans.find((p) => p.id === selectedHeat?.batch_plan_id) ?? null,
@@ -105,8 +108,10 @@ export function HeatChargingPage() {
         setPendingCancels(cancels.filter((r) => r.status === 'pending'))
         setPendingCorrections(corrections.filter((r) => r.status === 'pending'))
       }
+      setPendingUploads(getHeatPendingCount())
     } catch {
       setHeats(loadLocalHeats())
+      setPendingUploads(getHeatPendingCount())
     } finally {
       setLoading(false)
     }
@@ -114,6 +119,18 @@ export function HeatChargingPage() {
 
   useEffect(() => {
     void refreshData()
+  }, [refreshData])
+
+  // Without this, a request/entry queued while offline (e.g. a Plant Head's cancel request
+  // submitted with no connection) only ever gets a chance to sync on the next full remount of
+  // this page — it can sit invisibly stuck in local storage indefinitely otherwise, which is
+  // why an approved-looking submission can fail to ever reach the Owner's approval queue.
+  useEffect(() => {
+    function handleOnline() {
+      void refreshData()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
   }, [refreshData])
 
   useEffect(() => {
@@ -149,7 +166,43 @@ export function HeatChargingPage() {
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
       <BilingualText as="h1" en="Heat Charging & Cycle Log" hi="हीट चार्जिंग व साइकिल लॉग" className="text-3xl font-bold" />
 
+      {showPendingIndicator && pendingUploads > 0 && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-2 text-sm text-amber-200">
+          {t(`${pendingUploads} entries pending upload`, `${pendingUploads} प्रविष्टियाँ अपलोड बाकी`)}
+        </p>
+      )}
+
       {loading && <p className="text-center text-slate-400">{t('Loading…', 'लोड हो रहा है…')}</p>}
+
+      {/* Pending approvals are surfaced immediately at the top of the page for Owner — not
+          buried below the heat list/detail — since this is the maker-checker queue that gates
+          heat cancellation and heat-number corrections (03b §3). */}
+      {canDecide && (pendingCancels.length > 0 || pendingCorrections.length > 0) && (
+        <MakerCheckerForms
+          heat={null}
+          canRequestCancel={false}
+          canRequestCorrection={false}
+          canDecide
+          pendingCancels={pendingCancels}
+          pendingCorrections={pendingCorrections}
+          onCancelRequest={async () => {}}
+          onCorrectionRequest={async () => {}}
+          onDecideCancel={async (requestId, approve, note) => {
+            const req = pendingCancels.find((r) => r.id === requestId)
+            if (!req) return
+            await decideCancelRequest(user!, requestId, req.heat_id, approve, note)
+            showSaved()
+            void refreshData()
+          }}
+          onDecideCorrection={async (requestId, approve) => {
+            const req = pendingCorrections.find((r) => r.id === requestId)
+            if (!req) return
+            await decideHeatNoCorrection(user!, requestId, req.heat_id, req.requested_heat_no, approve)
+            showSaved()
+            void refreshData()
+          }}
+        />
+      )}
 
       {canStartAndCharge && (
         <StartHeatForm
@@ -264,33 +317,6 @@ export function HeatChargingPage() {
             }}
           />
         </>
-      )}
-
-      {canDecide && (
-        <MakerCheckerForms
-          heat={null}
-          canRequestCancel={false}
-          canRequestCorrection={false}
-          canDecide
-          pendingCancels={pendingCancels}
-          pendingCorrections={pendingCorrections}
-          onCancelRequest={async () => {}}
-          onCorrectionRequest={async () => {}}
-          onDecideCancel={async (requestId, approve, note) => {
-            const req = pendingCancels.find((r) => r.id === requestId)
-            if (!req) return
-            await decideCancelRequest(user!, requestId, req.heat_id, approve, note)
-            showSaved()
-            void refreshData()
-          }}
-          onDecideCorrection={async (requestId, approve) => {
-            const req = pendingCorrections.find((r) => r.id === requestId)
-            if (!req) return
-            await decideHeatNoCorrection(user!, requestId, req.heat_id, req.requested_heat_no, approve)
-            showSaved()
-            void refreshData()
-          }}
-        />
       )}
 
       <SavedConfirmation visible={savedVisible} />
