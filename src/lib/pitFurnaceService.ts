@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { createInFlightLock, insertIdempotent } from './offlineQueueSync'
 import {
   addLocalPitHeat,
   enqueueAction,
@@ -52,19 +53,19 @@ export async function fetchPitBalance(asOfDate: string): Promise<number> {
 
 export async function saveProductionEntry(
   user: AppUser,
-  payload: Omit<PitHeatInsert, 'created_by' | 'composition' | 'heat_no'> & { heat_no?: string },
+  payload: Omit<PitHeatInsert, 'created_by' | 'composition' | 'heat_no' | 'idempotency_key'> & { heat_no?: string },
   heats: PitHeat[],
 ): Promise<PitHeat> {
   const heatNo = payload.heat_no ?? nextHeatNo(heats, new Date(payload.date))
+  const localId = crypto.randomUUID()
 
   const insert: PitHeatInsert = {
     ...payload,
     heat_no: heatNo,
     composition: emptyComposition(),
     created_by: user.id,
+    idempotency_key: localId,
   }
-
-  const localId = crypto.randomUUID()
   const localHeat: PitHeat = {
     id: localId,
     _localId: localId,
@@ -126,7 +127,17 @@ export async function saveQualityEntry(user: AppUser, heat: PitHeat, composition
   return updated
 }
 
-export async function syncPendingActions(_user: AppUser): Promise<number> {
+// Only one flush of the pit-furnace queue may run at a time — same rationale as every other
+// module's sync lock: without it, concurrent triggers (online listener, post-save fire-and-forget
+// sync, another tab) could each read their own snapshot of the queue and double-submit an action
+// before either flush had a chance to remove it.
+const withPitSyncLock = createInFlightLock<number>()
+
+export function syncPendingActions(user: AppUser): Promise<number> {
+  return withPitSyncLock(() => runPitSync(user))
+}
+
+async function runPitSync(_user: AppUser): Promise<number> {
   if (!navigator.onLine) return getPendingActions().length
 
   const pending = [...getPendingActions()]
@@ -134,15 +145,10 @@ export async function syncPendingActions(_user: AppUser): Promise<number> {
 
   for (const action of pending) {
     if (action.kind === 'insert') {
-      const { data, error } = await furnace()
-        .from('pit_heats')
-        .insert(action.payload)
-        .select('*')
-        .single()
+      const { row, error } = await insertIdempotent(furnace, 'pit_heats', action.payload as unknown as Record<string, unknown>)
+      if (error || !row) continue
 
-      if (error) continue
-
-      const synced = rowToPitHeat(data as Record<string, unknown>)
+      const synced = rowToPitHeat(row)
       removePendingByLocalId(action.localId)
       updateLocalPitHeat(action.localId, { ...synced, _localId: undefined, _pending: false })
       remaining -= 1

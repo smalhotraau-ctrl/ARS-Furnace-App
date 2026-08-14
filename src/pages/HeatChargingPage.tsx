@@ -12,6 +12,7 @@ import { TempReadingsList } from '../components/heat/TempReadingsList'
 import { SavedConfirmation } from '../components/ui/SavedConfirmation'
 import { BilingualText } from '../components/ui/BilingualText'
 import { useLanguage } from '../context/LanguageContext'
+import { fetchGradeCodes } from '../lib/batchPlanService'
 import {
   addChargeLine,
   addTempReading,
@@ -59,6 +60,7 @@ export function HeatChargingPage() {
   const [tempReadings, setTempReadings] = useState<TempReading[]>([])
   const [furnaces, setFurnaces] = useState<FurnaceOption[]>([])
   const [materials, setMaterials] = useState<MaterialOption[]>([])
+  const [gradeCodes, setGradeCodes] = useState<string[]>([])
   const [batchPlans, setBatchPlans] = useState<BatchPlan[]>([])
   const [pendingCancels, setPendingCancels] = useState<Array<{ id: string; heat_id: string; reason: string }>>([])
   const [pendingCorrections, setPendingCorrections] = useState<
@@ -89,15 +91,17 @@ export function HeatChargingPage() {
   const refreshData = useCallback(async () => {
     try {
       if (navigator.onLine) await syncHeatQueue()
-      const [nextHeats, nextFurnaces, nextMaterials, nextPlans] = await Promise.all([
+      const [nextHeats, nextFurnaces, nextMaterials, nextGradeCodes, nextPlans] = await Promise.all([
         navigator.onLine ? fetchHeats() : Promise.resolve(loadLocalHeats()),
         fetchMainFurnacesForHeat().catch(() => []),
         fetchActiveMaterials().catch(() => []),
+        fetchGradeCodes().catch(() => []),
         fetchBatchPlansForHeat().catch(() => []),
       ])
       setHeats(nextHeats)
       setFurnaces(nextFurnaces)
       setMaterials(nextMaterials)
+      setGradeCodes(nextGradeCodes)
       setBatchPlans(nextPlans)
 
       if (canDecide && navigator.onLine) {
@@ -208,6 +212,7 @@ export function HeatChargingPage() {
         <StartHeatForm
           furnaces={furnaces}
           batchPlans={batchPlans}
+          gradeCodes={gradeCodes}
           onStart={async (values) => {
             const result = await startHeat(user!, values, heats)
             if (result.error) return { error: result.error }

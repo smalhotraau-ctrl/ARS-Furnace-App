@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { insertIdempotent } from './offlineQueueSync'
 import {
   addLocalChargeLine,
   addLocalCycleEntry,
@@ -521,32 +522,6 @@ async function assignRealHeatNo(localHeat: Heat): Promise<string | null> {
   return generateNextHeatNo(localHeat.furnace_code, furnaceInfo.heat_code_letter, new Date(localHeat.created_at))
 }
 
-// Inserts keyed by `idempotency_key` so a retried queue action (see the concurrency note on
-// syncHeatQueue below) can never create a second row. `ignoreDuplicates: true` turns this into
-// INSERT ... ON CONFLICT (idempotency_key) DO NOTHING at the PostgREST layer. On a genuine
-// conflict, PostgREST returns zero rows even though the row already exists — that's a CONFIRMED
-// duplicate (the action already succeeded on a previous attempt), not a failure, so we fetch the
-// existing row back by its idempotency key to reconcile local cache/state.
-async function insertIdempotent(
-  table: string,
-  payload: Record<string, unknown>,
-): Promise<{ row: Record<string, unknown> | null; error: unknown }> {
-  const { data, error } = await furnace()
-    .from(table)
-    .upsert(payload, { onConflict: 'idempotency_key', ignoreDuplicates: true })
-    .select('*')
-
-  if (error) return { row: null, error }
-  if (data && data.length > 0) return { row: data[0] as Record<string, unknown>, error: null }
-
-  const { data: existing, error: fetchError } = await furnace()
-    .from(table)
-    .select('*')
-    .eq('idempotency_key', payload.idempotency_key as string)
-    .maybeSingle()
-  return { row: (existing as Record<string, unknown> | null) ?? null, error: fetchError }
-}
-
 // Only one flush of furnace:heat_queue may run at a time. Without this, two triggers firing
 // close together — the page's 'online' listener, DevRoleSwitcher's pre-switch flush, and every
 // add*/submit* function's own fire-and-forget sync call — would each read their own snapshot of
@@ -587,7 +562,7 @@ async function runHeatQueueSync(): Promise<number> {
         if (realNo) insertPayload = { ...insertPayload, heat_no: realNo }
       }
 
-      const { row, error } = await insertIdempotent('heats', insertPayload as unknown as Record<string, unknown>)
+      const { row, error } = await insertIdempotent(furnace, 'heats', insertPayload as unknown as Record<string, unknown>)
       if (error || !row) continue
 
       const synced = rowToHeat(row)
@@ -609,7 +584,7 @@ async function runHeatQueueSync(): Promise<number> {
     }
 
     if (action.kind === 'charge_insert') {
-      const { row, error } = await insertIdempotent('charge_lines', action.payload)
+      const { row, error } = await insertIdempotent(furnace, 'charge_lines', action.payload)
       if (error || !row) continue
       const synced = rowToChargeLine(row)
       setCachedChargeLines(
@@ -621,7 +596,7 @@ async function runHeatQueueSync(): Promise<number> {
     }
 
     if (action.kind === 'cycle_insert') {
-      const { row, error } = await insertIdempotent('cycle_log', action.payload)
+      const { row, error } = await insertIdempotent(furnace, 'cycle_log', action.payload)
       if (error || !row) continue
       const synced = rowToCycleEntry(row)
       setCachedCycleLog(
@@ -643,7 +618,7 @@ async function runHeatQueueSync(): Promise<number> {
     }
 
     if (action.kind === 'temp_insert') {
-      const { row, error } = await insertIdempotent('temp_readings', action.payload)
+      const { row, error } = await insertIdempotent(furnace, 'temp_readings', action.payload)
       if (error || !row) continue
       const synced = rowToTempReading(row)
       setCachedTempReadings(
@@ -655,7 +630,7 @@ async function runHeatQueueSync(): Promise<number> {
     }
 
     if (action.kind === 'cancel_request') {
-      const { row, error } = await insertIdempotent('heat_cancel_requests', action.payload)
+      const { row, error } = await insertIdempotent(furnace, 'heat_cancel_requests', action.payload)
       if (error || !row) continue
       removeHeatQueueAction(action.queueId)
     }
@@ -667,7 +642,7 @@ async function runHeatQueueSync(): Promise<number> {
     }
 
     if (action.kind === 'correction_request') {
-      const { row, error } = await insertIdempotent('heat_no_corrections', action.payload)
+      const { row, error } = await insertIdempotent(furnace, 'heat_no_corrections', action.payload)
       if (error || !row) continue
       removeHeatQueueAction(action.queueId)
     }

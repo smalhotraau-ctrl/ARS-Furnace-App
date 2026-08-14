@@ -8,6 +8,7 @@ import { NumericField, parseNumericField } from '../ui/NumericField'
 interface StartHeatFormProps {
   furnaces: FurnaceOption[]
   batchPlans: BatchPlan[]
+  gradeCodes: string[]
   disabled?: boolean
   onStart: (values: {
     furnace_code: string
@@ -19,7 +20,7 @@ interface StartHeatFormProps {
   }) => Promise<{ error?: string }>
 }
 
-export function StartHeatForm({ furnaces, batchPlans, disabled = false, onStart }: StartHeatFormProps) {
+export function StartHeatForm({ furnaces, batchPlans, gradeCodes, disabled = false, onStart }: StartHeatFormProps) {
   const { t } = useLanguage()
   const [furnaceCode, setFurnaceCode] = useState('')
   const [batchPlanId, setBatchPlanId] = useState('')
@@ -122,12 +123,22 @@ export function StartHeatForm({ furnaces, batchPlans, disabled = false, onStart 
 
       <label className="block space-y-2">
         <BilingualText as="span" en="Grade *" hi="ग्रेड" className="font-semibold" />
-        <input
+        <select
           value={gradeCode}
           disabled={disabled || Boolean(selectedPlan)}
           onChange={(e) => setGradeCode(e.target.value)}
           className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
-        />
+        >
+          <option value="">{t('Select', 'चुनें')}</option>
+          {gradeCodes.map((code) => (
+            <option key={code} value={code}>{code}</option>
+          ))}
+          {/* A plan-linked grade may not be in the active grade_specs list (e.g. superseded) —
+              keep it selectable/visible instead of silently resetting to blank. */}
+          {gradeCode && !gradeCodes.includes(gradeCode) && (
+            <option value={gradeCode}>{gradeCode}</option>
+          )}
+        </select>
       </label>
 
       <label className="block space-y-2">

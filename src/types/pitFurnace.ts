@@ -37,6 +37,7 @@ export interface PitHeatInsert {
   composition: CompositionEntry[]
   sale_kg: number
   created_by: string
+  idempotency_key: string
 }
 
 export interface PitBalanceRow {

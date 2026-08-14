@@ -13,6 +13,7 @@ import {
   fetchGradeSpecs,
   fetchHeatsForSpectro,
   fetchSpectroReports,
+  getSpectroPendingCount,
   loadLocalSpectroReports,
   saveSpectroReport,
   syncSpectroQueue,
@@ -30,6 +31,7 @@ export function SpectroPage() {
 
   const canEnter = role === 'qa'
   const canView = role === 'supervisor' || role === 'qa' || role === 'plant_head' || role === 'admin_owner'
+  const showPendingIndicator = role === 'plant_head' || role === 'admin_owner'
 
   const [heats, setHeats] = useState<Heat[]>([])
   const [selectedHeat, setSelectedHeat] = useState<Heat | null>(null)
@@ -42,6 +44,7 @@ export function SpectroPage() {
   const [savedVisible, setSavedVisible] = useState(false)
   const [loading, setLoading] = useState(true)
   const [computing, setComputing] = useState(false)
+  const [pendingUploads, setPendingUploads] = useState(getSpectroPendingCount())
 
   const meltKg = useMemo(() => totalChargedKg(chargeLines), [chargeLines])
 
@@ -54,8 +57,10 @@ export function SpectroPage() {
       ])
       setHeats(nextHeats.filter((h) => isActiveHeat(h.status)))
       setGradeSpecs(nextSpecs)
+      setPendingUploads(getSpectroPendingCount())
     } catch {
       setHeats([])
+      setPendingUploads(getSpectroPendingCount())
     } finally {
       setLoading(false)
     }
@@ -63,6 +68,16 @@ export function SpectroPage() {
 
   useEffect(() => {
     void refreshData()
+  }, [refreshData])
+
+  // Without this, a report queued while offline only gets a chance to sync on the next full
+  // remount of this page — it can sit invisibly stuck in local storage indefinitely otherwise.
+  useEffect(() => {
+    function handleOnline() {
+      void refreshData()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
   }, [refreshData])
 
   useEffect(() => {
@@ -104,6 +119,12 @@ export function SpectroPage() {
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
       <BilingualText as="h1" en="Spectro" hi="स्पेक्ट्रो" className="text-3xl font-bold" />
 
+      {showPendingIndicator && pendingUploads > 0 && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-2 text-sm text-amber-200">
+          {t(`${pendingUploads} entries pending upload`, `${pendingUploads} प्रविष्टियाँ अपलोड बाकी`)}
+        </p>
+      )}
+
       {loading && <p className="text-center text-slate-400">{t('Loading…', 'लोड हो रहा है…')}</p>}
 
       <div>
@@ -140,6 +161,7 @@ export function SpectroPage() {
                   })
                   setReports((prev) => [saved, ...prev])
                   setPendingCorrection(null)
+                  setPendingUploads(getSpectroPendingCount())
                   showSaved()
                 }}
               />

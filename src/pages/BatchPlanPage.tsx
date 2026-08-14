@@ -44,6 +44,10 @@ export function BatchPlanPage() {
   const canCreateEdit = role === 'plant_head'
   const canOwnerReview = role === 'admin_owner'
   const isViewOnly = role === 'supervisor' || role === 'qa' || role === 'admin_owner'
+  // Plant Head is the only role that writes to this queue (create/edit), so they're the only
+  // one who can actually have entries stuck pending upload — same treatment as every other
+  // module's indicator (shown to Plant Head or Owner, not Owner alone).
+  const showPendingIndicator = role === 'plant_head' || role === 'admin_owner'
 
   const refreshData = useCallback(async () => {
     try {
@@ -102,7 +106,7 @@ export function BatchPlanPage() {
           hi="बैच योजना"
           className="text-3xl font-bold text-slate-100"
         />
-        {canOwnerReview && pendingUploads > 0 && (
+        {showPendingIndicator && pendingUploads > 0 && (
           <p className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-2 text-sm text-amber-200">
             {t(
               `${pendingUploads} entries pending upload`,

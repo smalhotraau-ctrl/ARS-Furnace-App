@@ -35,6 +35,17 @@ function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
+// Removal here already worked correctly by value (localId/heatId, not object reference), so
+// this queue never had the reference-equality bug the other queues had. It was still missing
+// the idempotency_key needed for server-side ON CONFLICT DO NOTHING protection against a
+// concurrent double-flush — backfilled here for whatever's already sitting in a user's browser.
+function migrateLegacyQueueEntry(action: PendingAction): PendingAction {
+  if (action.kind !== 'insert') return action
+  const payload = action.payload as Partial<PitHeatInsert>
+  if (payload.idempotency_key) return action
+  return { ...action, payload: { ...action.payload, idempotency_key: crypto.randomUUID() } }
+}
+
 export function getCachedPitHeats(): PitHeat[] {
   return readJson<PitHeat[]>(CACHE_KEY, [])
 }
@@ -66,7 +77,15 @@ export function mergeCachedPitHeats(serverHeats: PitHeat[]): PitHeat[] {
 }
 
 export function getPendingActions(): PendingAction[] {
-  return readJson<PendingAction[]>(QUEUE_KEY, [])
+  const raw = readJson<PendingAction[]>(QUEUE_KEY, [])
+  let changed = false
+  const migrated = raw.map((action) => {
+    const fixed = migrateLegacyQueueEntry(action)
+    if (fixed !== action) changed = true
+    return fixed
+  })
+  if (changed) writeJson(QUEUE_KEY, migrated)
+  return migrated
 }
 
 export function setPendingActions(actions: PendingAction[]) {

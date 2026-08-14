@@ -17,6 +17,7 @@ import {
   fetchHeatOutput,
   fetchOpenYieldFlags,
   fetchYieldStandards,
+  getOutputPendingCount,
   saveHeatOutput,
   syncOutputQueue,
   verifyAndCloseHeatOutput,
@@ -38,6 +39,7 @@ export function OutputPage() {
   const [openFlags, setOpenFlags] = useState<HeatOutputFlag[]>([])
   const [loading, setLoading] = useState(true)
   const [savedVisible, setSavedVisible] = useState(false)
+  const [pendingUploads, setPendingUploads] = useState(getOutputPendingCount())
 
   const canViewScreen = role === 'supervisor' || role === 'qa' || role === 'plant_head' || role === 'admin_owner'
   const canEnterOutput = role === 'supervisor'
@@ -45,6 +47,7 @@ export function OutputPage() {
   // Yield-standard flags are visible only to Plant Head / Owner, never Supervisor or QA —
   // even on the Plant Head's own verification screen. 03f §4 / 03b.
   const canSeeYieldFlags = role === 'plant_head' || role === 'admin_owner'
+  const showPendingIndicator = role === 'plant_head' || role === 'admin_owner'
 
   const chargedNetKg = useMemo(() => computeChargedNetKg(chargeLines), [chargeLines])
 
@@ -69,8 +72,10 @@ export function OutputPage() {
       if (canSeeYieldFlags && navigator.onLine) {
         setOpenFlags(await fetchOpenYieldFlags().catch(() => []))
       }
+      setPendingUploads(getOutputPendingCount())
     } catch {
       setHeats(loadLocalHeats())
+      setPendingUploads(getOutputPendingCount())
     } finally {
       setLoading(false)
     }
@@ -78,6 +83,17 @@ export function OutputPage() {
 
   useEffect(() => {
     void refreshData()
+  }, [refreshData])
+
+  // Without this, an output entry, verification, or flag queued while offline only gets a
+  // chance to sync on the next full remount of this page — it can sit invisibly stuck in local
+  // storage indefinitely otherwise.
+  useEffect(() => {
+    function handleOnline() {
+      void refreshData()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
   }, [refreshData])
 
   useEffect(() => {
@@ -103,6 +119,12 @@ export function OutputPage() {
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
       <BilingualText as="h1" en="Heat Output & Close" hi="हीट आउटपुट व समापन" className="text-3xl font-bold" />
 
+      {showPendingIndicator && pendingUploads > 0 && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-2 text-sm text-amber-200">
+          {t(`${pendingUploads} entries pending upload`, `${pendingUploads} प्रविष्टियाँ अपलोड बाकी`)}
+        </p>
+      )}
+
       {loading && <p className="text-center text-slate-400">{t('Loading…', 'लोड हो रहा है…')}</p>}
 
       {canSeeYieldFlags && (
@@ -112,6 +134,7 @@ export function OutputPage() {
           onAcknowledge={async (flag, note) => {
             await acknowledgeYieldFlag(user!, flag, note)
             setOpenFlags((prev) => prev.filter((f) => f.id !== flag.id))
+            setPendingUploads(getOutputPendingCount())
             showSaved()
           }}
         />
@@ -147,6 +170,7 @@ export function OutputPage() {
                     setHeatOutput(output)
                     setHeats((prev) => prev.map((h) => (h.id === selectedHeat.id ? { ...h, status: 'Closed' } : h)))
                     setSelectedHeat((prev) => (prev ? { ...prev, status: 'Closed' } : prev))
+                    setPendingUploads(getOutputPendingCount())
                     showSaved()
                     void refreshData()
                   }}
@@ -168,6 +192,7 @@ export function OutputPage() {
                 setHeatOutput(output)
                 setHeats((prev) => prev.map((h) => (h.id === selectedHeat.id ? { ...h, status: 'Output Entered' } : h)))
                 setSelectedHeat((prev) => (prev ? { ...prev, status: 'Output Entered' } : prev))
+                setPendingUploads(getOutputPendingCount())
                 showSaved()
               }}
             />
