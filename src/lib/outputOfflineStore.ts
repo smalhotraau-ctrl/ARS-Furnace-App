@@ -5,12 +5,17 @@ const YIELD_FLAGS_KEY = 'furnace:heat_output_flags'
 const FG_STOCK_KEY = 'furnace:fg_stock'
 const QUEUE_KEY = 'furnace:output_queue'
 
-export type OutputQueueAction =
+// Every variant carries its own `queueId` — see heatOfflineStore.ts's HeatQueueAction comment
+// for the full root-cause writeup. In short: removal used to compare action objects by
+// reference (`a !== action`) after a fresh JSON.parse() of localStorage, which never matched
+// anything, so nothing was ever actually removed from this queue either.
+export type OutputQueueAction = (
   | { kind: 'output_insert'; localId: string; payload: Record<string, unknown> }
   | { kind: 'output_verify'; outputId: string; localId?: string; payload: Record<string, unknown> }
   | { kind: 'flag_insert'; localId: string; payload: Record<string, unknown> }
   | { kind: 'flag_acknowledge'; flagId: string; payload: Record<string, unknown> }
   | { kind: 'fg_stock_insert'; localId: string; payload: Record<string, unknown> }
+) & { queueId: string }
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -23,6 +28,29 @@ function readJson<T>(key: string, fallback: T): T {
 
 function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value))
+}
+
+const INSERT_KINDS_NEEDING_IDEMPOTENCY_KEY = new Set<OutputQueueAction['kind']>([
+  'output_insert',
+  'flag_insert',
+  'fg_stock_insert',
+])
+
+// Self-heals queue entries written by older code before `queueId`/`idempotency_key` existed —
+// see heatOfflineStore.ts's migrateLegacyQueueEntry for why this matters (a bare
+// removeOutputQueueAction(undefined) would otherwise wipe out every other legacy entry that
+// also lacks a queueId).
+function migrateLegacyQueueEntry(raw: OutputQueueAction): OutputQueueAction {
+  const action = raw as OutputQueueAction & { payload?: Record<string, unknown> }
+  const queueId = action.queueId || crypto.randomUUID()
+
+  let payload = action.payload
+  if (payload && !payload.idempotency_key && INSERT_KINDS_NEEDING_IDEMPOTENCY_KEY.has(action.kind)) {
+    payload = { ...payload, idempotency_key: crypto.randomUUID() }
+  }
+
+  if (queueId === action.queueId && payload === action.payload) return raw
+  return { ...action, queueId, payload } as OutputQueueAction
 }
 
 export function getCachedHeatOutputs(): HeatOutput[] {
@@ -76,15 +104,33 @@ export function setCachedFgStock(rows: FgStock[]) {
 }
 
 export function getOutputQueue(): OutputQueueAction[] {
-  return readJson<OutputQueueAction[]>(QUEUE_KEY, [])
+  const raw = readJson<OutputQueueAction[]>(QUEUE_KEY, [])
+  let changed = false
+  const migrated = raw.map((action) => {
+    const fixed = migrateLegacyQueueEntry(action)
+    if (fixed !== action) changed = true
+    return fixed
+  })
+  if (changed) writeJson(QUEUE_KEY, migrated)
+  return migrated
 }
 
 export function setOutputQueue(actions: OutputQueueAction[]) {
   writeJson(QUEUE_KEY, actions)
 }
 
-export function enqueueOutputAction(action: OutputQueueAction) {
-  setOutputQueue([...getOutputQueue(), action])
+type DistributiveOmit<T, K extends keyof never> = T extends unknown ? Omit<T, K> : never
+
+export function enqueueOutputAction(action: DistributiveOmit<OutputQueueAction, 'queueId'>): OutputQueueAction {
+  const stamped = { ...action, queueId: crypto.randomUUID() } as OutputQueueAction
+  setOutputQueue([...getOutputQueue(), stamped])
+  return stamped
+}
+
+// The only correct way to remove a processed action — matches by the stable queueId rather
+// than object reference.
+export function removeOutputQueueAction(queueId: string) {
+  setOutputQueue(getOutputQueue().filter((a) => a.queueId !== queueId))
 }
 
 export function rowToHeatOutput(row: Record<string, unknown>): HeatOutput {

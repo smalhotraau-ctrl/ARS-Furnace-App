@@ -9,6 +9,7 @@ import {
   getCachedHeats,
   getCachedTempReadings,
   getHeatQueue,
+  removeHeatQueueAction,
   rowToCancelRequest,
   rowToChargeLine,
   rowToCycleEntry,
@@ -19,7 +20,6 @@ import {
   setCachedCycleLog,
   setCachedHeats,
   setCachedTempReadings,
-  setHeatQueue,
   updateLocalCycleEntry,
   updateLocalHeat,
   upsertLocalHeat,
@@ -204,6 +204,7 @@ export async function startHeat(
     status: 'Planned',
     fuel_reading: params.fuel_reading,
     created_by: user.id,
+    idempotency_key: localId,
   }
 
   const localHeat: Heat = {
@@ -228,10 +229,13 @@ export async function startHeat(
   return { heat: localHeat }
 }
 
-export async function addChargeLine(user: AppUser, insert: Omit<ChargeLineInsert, 'created_by' | 'added_at'>): Promise<ChargeLine> {
+export async function addChargeLine(
+  user: AppUser,
+  insert: Omit<ChargeLineInsert, 'created_by' | 'added_at' | 'idempotency_key'>,
+): Promise<ChargeLine> {
   const now = new Date().toISOString()
   const localId = crypto.randomUUID()
-  const payload: ChargeLineInsert = { ...insert, added_at: now, created_by: user.id }
+  const payload: ChargeLineInsert = { ...insert, added_at: now, created_by: user.id, idempotency_key: localId }
 
   const line: ChargeLine = {
     id: localId,
@@ -268,6 +272,7 @@ export async function startCycleStage(user: AppUser, heatId: string, stage: Cycl
     start_ts: now,
     finish_ts: null,
     recorded_by: user.id,
+    idempotency_key: localId,
   }
 
   const entry: CycleLogEntry = {
@@ -300,11 +305,11 @@ export async function finishCycleStage(entry: CycleLogEntry): Promise<CycleLogEn
 
 export async function addTempReading(
   user: AppUser,
-  insert: Omit<TempReadingInsert, 'recorded_by'>,
+  insert: Omit<TempReadingInsert, 'recorded_by' | 'idempotency_key'>,
 ): Promise<TempReading> {
   const now = new Date().toISOString()
   const localId = crypto.randomUUID()
-  const payload: TempReadingInsert = { ...insert, recorded_by: user.id }
+  const payload: TempReadingInsert = { ...insert, recorded_by: user.id, idempotency_key: localId }
 
   const reading: TempReading = {
     id: localId,
@@ -327,6 +332,7 @@ export async function submitCancelRequest(user: AppUser, heatId: string, reason:
     requested_by: user.id,
     reason,
     status: 'pending',
+    idempotency_key: localId,
   }
   enqueueHeatAction({ kind: 'cancel_request', localId, payload })
   if (navigator.onLine) void syncHeatQueue()
@@ -375,6 +381,7 @@ export async function submitHeatNoCorrection(
       requested_by: user.id,
       reason,
       status: 'pending',
+      idempotency_key: localId,
     },
   })
   if (navigator.onLine) void syncHeatQueue()
@@ -514,7 +521,50 @@ async function assignRealHeatNo(localHeat: Heat): Promise<string | null> {
   return generateNextHeatNo(localHeat.furnace_code, furnaceInfo.heat_code_letter, new Date(localHeat.created_at))
 }
 
-export async function syncHeatQueue(): Promise<number> {
+// Inserts keyed by `idempotency_key` so a retried queue action (see the concurrency note on
+// syncHeatQueue below) can never create a second row. `ignoreDuplicates: true` turns this into
+// INSERT ... ON CONFLICT (idempotency_key) DO NOTHING at the PostgREST layer. On a genuine
+// conflict, PostgREST returns zero rows even though the row already exists — that's a CONFIRMED
+// duplicate (the action already succeeded on a previous attempt), not a failure, so we fetch the
+// existing row back by its idempotency key to reconcile local cache/state.
+async function insertIdempotent(
+  table: string,
+  payload: Record<string, unknown>,
+): Promise<{ row: Record<string, unknown> | null; error: unknown }> {
+  const { data, error } = await furnace()
+    .from(table)
+    .upsert(payload, { onConflict: 'idempotency_key', ignoreDuplicates: true })
+    .select('*')
+
+  if (error) return { row: null, error }
+  if (data && data.length > 0) return { row: data[0] as Record<string, unknown>, error: null }
+
+  const { data: existing, error: fetchError } = await furnace()
+    .from(table)
+    .select('*')
+    .eq('idempotency_key', payload.idempotency_key as string)
+    .maybeSingle()
+  return { row: (existing as Record<string, unknown> | null) ?? null, error: fetchError }
+}
+
+// Only one flush of furnace:heat_queue may run at a time. Without this, two triggers firing
+// close together — the page's 'online' listener, DevRoleSwitcher's pre-switch flush, and every
+// add*/submit* function's own fire-and-forget sync call — would each read their own snapshot of
+// the queue and process the same still-queued actions concurrently, submitting the same insert
+// twice before either flush had a chance to remove it. Concurrent callers now share one in-flight
+// run instead of racing.
+let heatSyncInFlight: Promise<number> | null = null
+
+export function syncHeatQueue(): Promise<number> {
+  if (heatSyncInFlight) return heatSyncInFlight
+  const run = runHeatQueueSync().finally(() => {
+    heatSyncInFlight = null
+  })
+  heatSyncInFlight = run
+  return run
+}
+
+async function runHeatQueueSync(): Promise<number> {
   if (!navigator.onLine) return getHeatQueue().length
 
   const queue = [...getHeatQueue()]
@@ -537,12 +587,12 @@ export async function syncHeatQueue(): Promise<number> {
         if (realNo) insertPayload = { ...insertPayload, heat_no: realNo }
       }
 
-      const { data, error } = await furnace().from('heats').insert(insertPayload).select('*').single()
-      if (error) continue
+      const { row, error } = await insertIdempotent('heats', insertPayload as unknown as Record<string, unknown>)
+      if (error || !row) continue
 
-      const synced = rowToHeat(data as Record<string, unknown>)
+      const synced = rowToHeat(row)
       updateLocalHeat(action.localId, { ...synced, _localId: undefined, _pending: false, _emergency: false })
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'heat_update') {
@@ -555,31 +605,31 @@ export async function syncHeatQueue(): Promise<number> {
       const { error } = await furnace().from('heats').update(action.payload).eq('id', resolvedId)
       if (error) continue
       updateLocalHeat(heatId, { ...action.payload, _pending: false } as Partial<Heat>)
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'charge_insert') {
-      const { data, error } = await furnace().from('charge_lines').insert(action.payload).select('*').single()
-      if (error) continue
-      const synced = rowToChargeLine(data as Record<string, unknown>)
+      const { row, error } = await insertIdempotent('charge_lines', action.payload)
+      if (error || !row) continue
+      const synced = rowToChargeLine(row)
       setCachedChargeLines(
         getCachedChargeLines().map((l) =>
           l._localId === action.localId ? { ...synced, _pending: false } : l,
         ),
       )
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'cycle_insert') {
-      const { data, error } = await furnace().from('cycle_log').insert(action.payload).select('*').single()
-      if (error) continue
-      const synced = rowToCycleEntry(data as Record<string, unknown>)
+      const { row, error } = await insertIdempotent('cycle_log', action.payload)
+      if (error || !row) continue
+      const synced = rowToCycleEntry(row)
       setCachedCycleLog(
         getCachedCycleLog().map((e) =>
           e._localId === action.localId ? { ...synced, _pending: false } : e,
         ),
       )
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'cycle_finish') {
@@ -589,43 +639,43 @@ export async function syncHeatQueue(): Promise<number> {
         .eq('id', action.entryId)
       if (error) continue
       updateLocalCycleEntry(action.entryId, { finish_ts: action.finish_ts, _pending: false })
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'temp_insert') {
-      const { data, error } = await furnace().from('temp_readings').insert(action.payload).select('*').single()
-      if (error) continue
-      const synced = rowToTempReading(data as Record<string, unknown>)
+      const { row, error } = await insertIdempotent('temp_readings', action.payload)
+      if (error || !row) continue
+      const synced = rowToTempReading(row)
       setCachedTempReadings(
         getCachedTempReadings().map((r) =>
           r._localId === action.localId ? { ...synced, _pending: false } : r,
         ),
       )
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'cancel_request') {
-      const { error } = await furnace().from('heat_cancel_requests').insert(action.payload)
-      if (error) continue
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      const { row, error } = await insertIdempotent('heat_cancel_requests', action.payload)
+      if (error || !row) continue
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'cancel_decide') {
       const { error } = await furnace().from('heat_cancel_requests').update(action.payload).eq('id', action.requestId)
       if (error) continue
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'correction_request') {
-      const { error } = await furnace().from('heat_no_corrections').insert(action.payload)
-      if (error) continue
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      const { row, error } = await insertIdempotent('heat_no_corrections', action.payload)
+      if (error || !row) continue
+      removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'correction_decide') {
       const { error } = await furnace().from('heat_no_corrections').update(action.payload).eq('id', action.requestId)
       if (error) continue
-      setHeatQueue(getHeatQueue().filter((a) => a !== action))
+      removeHeatQueueAction(action.queueId)
     }
   }
 

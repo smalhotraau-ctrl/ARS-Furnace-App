@@ -31,8 +31,27 @@ export function setCachedSpectroReports(reports: SpectroReport[]) {
   writeJson(CACHE_KEY, reports)
 }
 
+// Unlike heat/output/dispatch queues, this one already removed entries correctly
+// (removeSpectroPending below filters by the stable `localId` value, not object reference), so
+// `localId` already serves as this queue's queueId. It was still missing the idempotency_key
+// needed for server-side ON CONFLICT DO NOTHING protection against a concurrent double-flush —
+// backfilled here for whatever's already sitting in a user's browser.
+function migrateLegacyQueueEntry(action: PendingSpectroInsert): PendingSpectroInsert {
+  const payload = action.payload as SpectroReportInsert & { idempotency_key?: string }
+  if (payload.idempotency_key) return action
+  return { ...action, payload: { ...payload, idempotency_key: crypto.randomUUID() } }
+}
+
 export function getSpectroQueue(): PendingSpectroInsert[] {
-  return readJson<PendingSpectroInsert[]>(QUEUE_KEY, [])
+  const raw = readJson<PendingSpectroInsert[]>(QUEUE_KEY, [])
+  let changed = false
+  const migrated = raw.map((action) => {
+    const fixed = migrateLegacyQueueEntry(action)
+    if (fixed !== action) changed = true
+    return fixed
+  })
+  if (changed) writeJson(QUEUE_KEY, migrated)
+  return migrated
 }
 
 export function setSpectroQueue(actions: PendingSpectroInsert[]) {

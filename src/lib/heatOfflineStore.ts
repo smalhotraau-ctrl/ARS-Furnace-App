@@ -15,7 +15,15 @@ const CYCLE_LOG_KEY = 'furnace:cycle_log'
 const TEMP_READINGS_KEY = 'furnace:temp_readings'
 const QUEUE_KEY = 'furnace:heat_queue'
 
-export type HeatQueueAction =
+// Every variant carries its own `queueId` — a client-generated id for the QUEUE ENTRY itself,
+// distinct from `localId`/`requestId` (which identify the underlying business row). This is the
+// only thing `syncHeatQueue` uses to remove a processed action. Removal used to compare action
+// objects by reference (`a !== action`), which silently never matched anything: every call to
+// getHeatQueue() does a fresh JSON.parse() of localStorage, producing brand-new object
+// instances each time, so no parsed object is ever `===` to any other. Actions were never
+// actually removed from the queue — every sync pass re-sent every action ever queued,
+// resubmitting duplicate inserts (visible as repeated identical cancel requests, etc.) forever.
+export type HeatQueueAction = (
   | { kind: 'heat_insert'; localId: string; payload: HeatInsert; emergency: boolean }
   | { kind: 'heat_update'; heatId: string; localId?: string; payload: Record<string, unknown> }
   | { kind: 'heat_assign_no'; heatId: string; localId?: string; heat_no: string }
@@ -27,6 +35,7 @@ export type HeatQueueAction =
   | { kind: 'cancel_decide'; requestId: string; payload: Record<string, unknown> }
   | { kind: 'correction_request'; localId: string; payload: Record<string, unknown> }
   | { kind: 'correction_decide'; requestId: string; payload: Record<string, unknown> }
+) & { queueId: string }
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -39,6 +48,34 @@ function readJson<T>(key: string, fallback: T): T {
 
 function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value))
+}
+
+const INSERT_KINDS_NEEDING_IDEMPOTENCY_KEY = new Set<HeatQueueAction['kind']>([
+  'heat_insert',
+  'charge_insert',
+  'cycle_insert',
+  'temp_insert',
+  'cancel_request',
+  'correction_request',
+])
+
+// Self-heals queue entries written by older code before `queueId`/`idempotency_key` existed.
+// This matters a lot here specifically: if a legacy entry (queueId undefined) were left as-is,
+// the first successful removeHeatQueueAction(undefined) would match every other legacy entry
+// that also has queueId undefined and silently wipe them all from the local queue — without
+// them ever having reached the server. Backfilling on read (once, then persisting) means every
+// entry always has a real, unique queueId before it's ever removed by one.
+function migrateLegacyQueueEntry(raw: HeatQueueAction): HeatQueueAction {
+  const action = raw as HeatQueueAction & { payload?: Record<string, unknown> }
+  const queueId = action.queueId || crypto.randomUUID()
+
+  let payload = action.payload
+  if (payload && !payload.idempotency_key && INSERT_KINDS_NEEDING_IDEMPOTENCY_KEY.has(action.kind)) {
+    payload = { ...payload, idempotency_key: crypto.randomUUID() }
+  }
+
+  if (queueId === action.queueId && payload === action.payload) return raw
+  return { ...action, queueId, payload } as HeatQueueAction
 }
 
 export function getCachedHeats(): Heat[] {
@@ -74,15 +111,37 @@ export function setCachedTempReadings(readings: TempReading[]) {
 }
 
 export function getHeatQueue(): HeatQueueAction[] {
-  return readJson<HeatQueueAction[]>(QUEUE_KEY, [])
+  const raw = readJson<HeatQueueAction[]>(QUEUE_KEY, [])
+  let changed = false
+  const migrated = raw.map((action) => {
+    const fixed = migrateLegacyQueueEntry(action)
+    if (fixed !== action) changed = true
+    return fixed
+  })
+  if (changed) writeJson(QUEUE_KEY, migrated)
+  return migrated
 }
 
 export function setHeatQueue(actions: HeatQueueAction[]) {
   writeJson(QUEUE_KEY, actions)
 }
 
-export function enqueueHeatAction(action: HeatQueueAction) {
-  setHeatQueue([...getHeatQueue(), action])
+// Plain `Omit` isn't distributive over a union — applied to `HeatQueueAction` it collapses to
+// only the fields common to every variant (just `kind`), rejecting the variant-specific fields
+// (localId/heatId/requestId/etc.) that callers actually need to pass. Distributing the
+// conditional type over each union member first keeps each variant's own shape intact.
+type DistributiveOmit<T, K extends keyof never> = T extends unknown ? Omit<T, K> : never
+
+export function enqueueHeatAction(action: DistributiveOmit<HeatQueueAction, 'queueId'>): HeatQueueAction {
+  const stamped = { ...action, queueId: crypto.randomUUID() } as HeatQueueAction
+  setHeatQueue([...getHeatQueue(), stamped])
+  return stamped
+}
+
+// The only correct way to remove a processed action — matches by the stable queueId rather
+// than object reference (see HeatQueueAction comment above for why reference equality failed).
+export function removeHeatQueueAction(queueId: string) {
+  setHeatQueue(getHeatQueue().filter((a) => a.queueId !== queueId))
 }
 
 export function upsertLocalHeat(heat: Heat) {

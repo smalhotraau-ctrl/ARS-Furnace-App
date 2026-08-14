@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { fetchGradeSpecs } from './batchPlanService'
 import { fetchChargeLines, fetchHeats, loadLocalHeats } from './heatService'
+import { createInFlightLock, insertIdempotent } from './offlineQueueSync'
 import {
   addLocalSpectroReport,
   enqueueSpectroAction,
@@ -48,10 +49,10 @@ export { fetchGradeSpecs, fetchChargeLines }
 
 export async function saveSpectroReport(
   user: AppUser,
-  payload: Omit<SpectroReportInsert, 'recorded_by'>,
+  payload: Omit<SpectroReportInsert, 'recorded_by' | 'idempotency_key'>,
 ): Promise<SpectroReport> {
-  const insert: SpectroReportInsert = { ...payload, recorded_by: user.id }
   const localId = crypto.randomUUID()
+  const insert: SpectroReportInsert = { ...payload, recorded_by: user.id, idempotency_key: localId }
   const now = new Date().toISOString()
 
   const localReport: SpectroReport = {
@@ -87,20 +88,26 @@ export async function updateReportCorrection(
   return updated
 }
 
-export async function syncSpectroQueue(): Promise<number> {
+// Only one flush of furnace:spectro_queue may run at a time — see offlineQueueSync.ts.
+const withSpectroSyncLock = createInFlightLock<number>()
+
+export function syncSpectroQueue(): Promise<number> {
+  return withSpectroSyncLock(runSpectroQueueSync)
+}
+
+async function runSpectroQueueSync(): Promise<number> {
   if (!navigator.onLine) return getSpectroQueue().length
 
   for (const action of [...getSpectroQueue()]) {
     if (action.kind === 'insert') {
-      const { data, error } = await furnace()
-        .from('spectro_reports')
-        .insert(action.payload)
-        .select('*')
-        .single()
+      const { row, error } = await insertIdempotent(
+        furnace,
+        'spectro_reports',
+        action.payload as unknown as Record<string, unknown>,
+      )
+      if (error || !row) continue
 
-      if (error) continue
-
-      const synced = rowToSpectroReport(data as Record<string, unknown>)
+      const synced = rowToSpectroReport(row)
       removeSpectroPending(action.localId)
       updateLocalSpectroReport(action.localId, { ...synced, _localId: undefined, _pending: false })
     }

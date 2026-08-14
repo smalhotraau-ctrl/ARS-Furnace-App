@@ -34,6 +34,7 @@ export interface SpectroReportInsert {
   sample_time: string
   correction_suggested: CorrectionSuggestion[] | null
   recorded_by: string
+  idempotency_key: string
 }
 
 export function parseSpectroComposition(raw: unknown): SpectroCompositionEntry[] {

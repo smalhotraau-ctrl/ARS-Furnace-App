@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { computeRecoveryBreakdown, computeYieldFlags } from './outputCalc'
 import { enqueueHeatAction, updateLocalHeat } from './heatOfflineStore'
+import { createInFlightLock, insertIdempotent } from './offlineQueueSync'
 import {
   addLocalHeatOutput,
   addLocalYieldFlag,
@@ -9,13 +10,13 @@ import {
   getCachedHeatOutputs,
   getCachedYieldFlags,
   getOutputQueue,
+  removeOutputQueueAction,
   rowToFgStock,
   rowToHeatOutput,
   rowToYieldFlag,
   setCachedFgStock,
   setCachedHeatOutputs,
   setCachedYieldFlags,
-  setOutputQueue,
   updateLocalHeatOutput,
   updateLocalYieldFlag,
 } from './outputOfflineStore'
@@ -114,6 +115,7 @@ export async function saveHeatOutput(
     iron_pct: recovery.iron_pct,
     burn_loss_pct: recovery.burn_loss_pct,
     recorded_by: user.id,
+    idempotency_key: localId,
   }
 
   const localOutput: HeatOutput = {
@@ -171,6 +173,7 @@ export async function verifyAndCloseHeatOutput(
       actual_pct: c.actual_pct,
       expected_min_pct: c.expected_min_pct,
       expected_max_pct: c.expected_max_pct,
+      idempotency_key: localId,
     }
     const flag: HeatOutputFlag = {
       id: localId,
@@ -204,7 +207,12 @@ export async function verifyAndCloseHeatOutput(
   })
 
   const fgLocalId = crypto.randomUUID()
-  const fgPayload = { heat_id: heat.id, grade_code: heat.grade_code, kg_available: output.ingot_kg }
+  const fgPayload = {
+    heat_id: heat.id,
+    grade_code: heat.grade_code,
+    kg_available: output.ingot_kg,
+    idempotency_key: fgLocalId,
+  }
   setCachedFgStock([
     { id: fgLocalId, ...fgPayload, created_at: now, updated_at: now },
     ...getCachedFgStock().filter((s) => s.heat_id !== heat.id),
@@ -226,18 +234,25 @@ export async function acknowledgeYieldFlag(user: AppUser, flag: HeatOutputFlag, 
   if (navigator.onLine) void syncOutputQueue()
 }
 
-export async function syncOutputQueue(): Promise<number> {
+// Only one flush of furnace:output_queue may run at a time — see offlineQueueSync.ts.
+const withOutputSyncLock = createInFlightLock<number>()
+
+export function syncOutputQueue(): Promise<number> {
+  return withOutputSyncLock(runOutputQueueSync)
+}
+
+async function runOutputQueueSync(): Promise<number> {
   if (!navigator.onLine) return getOutputQueue().length
 
   const queue = [...getOutputQueue()]
 
   for (const action of queue) {
     if (action.kind === 'output_insert') {
-      const { data, error } = await furnace().from('heat_output').insert(action.payload).select('*').single()
-      if (error) continue
-      const synced = rowToHeatOutput(data as Record<string, unknown>)
+      const { row, error } = await insertIdempotent(furnace, 'heat_output', action.payload)
+      if (error || !row) continue
+      const synced = rowToHeatOutput(row)
       updateLocalHeatOutput(action.localId, { ...synced, _localId: undefined, _pending: false })
-      setOutputQueue(getOutputQueue().filter((a) => a !== action))
+      removeOutputQueueAction(action.queueId)
     }
 
     if (action.kind === 'output_verify') {
@@ -245,32 +260,32 @@ export async function syncOutputQueue(): Promise<number> {
       const { error } = await furnace().from('heat_output').update(action.payload).eq('id', resolvedId)
       if (error) continue
       updateLocalHeatOutput(action.outputId, { ...action.payload, _pending: false } as Partial<HeatOutput>)
-      setOutputQueue(getOutputQueue().filter((a) => a !== action))
+      removeOutputQueueAction(action.queueId)
     }
 
     if (action.kind === 'flag_insert') {
-      const { data, error } = await furnace().from('heat_output_flags').insert(action.payload).select('*').single()
-      if (error) continue
-      const synced = rowToYieldFlag(data as Record<string, unknown>)
+      const { row, error } = await insertIdempotent(furnace, 'heat_output_flags', action.payload)
+      if (error || !row) continue
+      const synced = rowToYieldFlag(row)
       updateLocalYieldFlag(action.localId, { ...synced, _localId: undefined, _pending: false })
-      setOutputQueue(getOutputQueue().filter((a) => a !== action))
+      removeOutputQueueAction(action.queueId)
     }
 
     if (action.kind === 'flag_acknowledge') {
       const { error } = await furnace().from('heat_output_flags').update(action.payload).eq('id', action.flagId)
       if (error) continue
       updateLocalYieldFlag(action.flagId, { ...action.payload, _pending: false } as Partial<HeatOutputFlag>)
-      setOutputQueue(getOutputQueue().filter((a) => a !== action))
+      removeOutputQueueAction(action.queueId)
     }
 
     if (action.kind === 'fg_stock_insert') {
-      const { data, error } = await furnace().from('fg_stock').insert(action.payload).select('*').single()
-      if (error) continue
-      const synced = rowToFgStock(data as Record<string, unknown>)
+      const { row, error } = await insertIdempotent(furnace, 'fg_stock', action.payload)
+      if (error || !row) continue
+      const synced = rowToFgStock(row)
       setCachedFgStock(
         getCachedFgStock().map((s) => (s.id === action.localId ? synced : s)),
       )
-      setOutputQueue(getOutputQueue().filter((a) => a !== action))
+      removeOutputQueueAction(action.queueId)
     }
   }
 

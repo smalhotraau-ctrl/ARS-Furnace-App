@@ -37,6 +37,7 @@ export interface BatchPlanInsert {
   expected_composition: ExpectedCompositionEntry[]
   status: string
   created_by: string
+  idempotency_key: string
 }
 
 export interface FurnaceOption {

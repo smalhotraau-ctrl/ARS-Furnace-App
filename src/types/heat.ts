@@ -39,6 +39,7 @@ export interface HeatInsert {
   status: HeatStatus
   fuel_reading: number | null
   created_by: string
+  idempotency_key: string
 }
 
 export interface ChargeLine {
@@ -67,6 +68,7 @@ export interface ChargeLineInsert {
   is_mid_heat_addition: boolean
   added_at: string
   created_by: string
+  idempotency_key: string
 }
 
 export interface CycleLogEntry {
@@ -87,6 +89,7 @@ export interface CycleLogInsert {
   start_ts: string
   finish_ts: string | null
   recorded_by: string
+  idempotency_key: string
 }
 
 export interface TempReading {
@@ -109,6 +112,7 @@ export interface TempReadingInsert {
   spec_min: number | null
   spec_max: number | null
   recorded_by: string
+  idempotency_key: string
 }
 
 export interface HeatCancelRequest {

@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { createInFlightLock, insertIdempotent, insertManyIdempotent } from './offlineQueueSync'
 import {
   addLocalBundle,
   addLocalDispatch,
@@ -8,6 +9,7 @@ import {
   getCachedDispatchLines,
   getCachedDispatches,
   getQueue,
+  removeDispatchQueueAction,
   replaceDispatchIdOnLines,
   rowToBundle,
   rowToDispatch,
@@ -15,7 +17,6 @@ import {
   setCachedBundles,
   setCachedDispatchLines,
   setCachedDispatches,
-  setQueue,
   updateLocalBundle,
   updateLocalDispatch,
 } from './dispatchOfflineStore'
@@ -121,6 +122,7 @@ export async function saveBundle(
     weight_kg: values.weight_kg,
     packed_by: user.id,
     packed_at: now,
+    idempotency_key: localId,
   }
 
   const localBundle: Bundle = { id: localId, _localId: localId, _pending: true, ...payload }
@@ -153,6 +155,7 @@ export async function saveDispatch(
     shortage_kg: null,
     shortage_reported_date: null,
     created_by: user.id,
+    idempotency_key: localId,
   }
 
   const localDispatch: Dispatch = {
@@ -167,7 +170,10 @@ export async function saveDispatch(
   }
   addLocalDispatch(localDispatch)
 
-  const lineDrafts = lines.map((l) => ({ localId: crypto.randomUUID(), heat_id: l.heat_id, kg_dispatched: l.kg_dispatched }))
+  const lineDrafts = lines.map((l) => {
+    const lineLocalId = crypto.randomUUID()
+    return { localId: lineLocalId, heat_id: l.heat_id, kg_dispatched: l.kg_dispatched, idempotency_key: lineLocalId }
+  })
   const localLines: DispatchLine[] = lineDrafts.map((l) => ({
     id: l.localId,
     _localId: l.localId,
@@ -215,24 +221,31 @@ export async function updateDispatchShortage(
   return updated
 }
 
-export async function syncDispatchQueue(): Promise<number> {
+// Only one flush of furnace:dispatch_queue may run at a time — see offlineQueueSync.ts.
+const withDispatchSyncLock = createInFlightLock<number>()
+
+export function syncDispatchQueue(): Promise<number> {
+  return withDispatchSyncLock(runDispatchQueueSync)
+}
+
+async function runDispatchQueueSync(): Promise<number> {
   if (!navigator.onLine) return getQueue().length
 
   const queue = [...getQueue()]
 
   for (const action of queue) {
     if (action.kind === 'bundle_insert') {
-      const { data, error } = await furnace().from('bundles').insert(action.payload).select('*').single()
-      if (error) continue
-      const synced = rowToBundle(data as Record<string, unknown>)
+      const { row, error } = await insertIdempotent(furnace, 'bundles', action.payload)
+      if (error || !row) continue
+      const synced = rowToBundle(row)
       updateLocalBundle(action.localId, { ...synced, _localId: undefined, _pending: false })
-      setQueue(getQueue().filter((a) => a !== action))
+      removeDispatchQueueAction(action.queueId)
     }
 
     if (action.kind === 'dispatch_insert') {
-      const { data, error } = await furnace().from('dispatches').insert(action.payload).select('*').single()
-      if (error) continue
-      const syncedDispatch = rowToDispatch(data as Record<string, unknown>)
+      const { row, error } = await insertIdempotent(furnace, 'dispatches', action.payload)
+      if (error || !row) continue
+      const syncedDispatch = rowToDispatch(row)
       updateLocalDispatch(action.localId, { ...syncedDispatch, _localId: undefined, _pending: false })
       replaceDispatchIdOnLines(action.localId, syncedDispatch.id)
 
@@ -240,15 +253,19 @@ export async function syncDispatchQueue(): Promise<number> {
         dispatch_id: syncedDispatch.id,
         heat_id: l.heat_id,
         kg_dispatched: l.kg_dispatched,
+        idempotency_key: l.idempotency_key,
       }))
-      const { data: lineRows, error: lineError } = await furnace().from('dispatch_lines').insert(linesPayload).select('*')
+      // Dispatch header succeeded (or was confirmed already synced) above — if the lines fail
+      // here, `continue` leaves this action queued for retry. The header insert is itself
+      // idempotent, so retrying it is safe: it'll hit the ON CONFLICT DO NOTHING path and come
+      // back as the already-existing row instead of creating a second dispatch header.
+      const { rows: lineRows, error: lineError } = await insertManyIdempotent(furnace, 'dispatch_lines', linesPayload)
       if (lineError) continue
 
-      const syncedLines = (lineRows ?? []).map((row) => rowToDispatchLine(row as Record<string, unknown>))
-      for (let i = 0; i < action.lines.length; i++) {
-        const draft = action.lines[i]
-        const synced = syncedLines[i]
-        if (synced) {
+      for (const draft of action.lines) {
+        const syncedRow = lineRows.find((r) => r.idempotency_key === draft.idempotency_key)
+        if (syncedRow) {
+          const synced = rowToDispatchLine(syncedRow)
           setCachedDispatchLines(
             getCachedDispatchLines().map((l) =>
               l._localId === draft.localId ? { ...synced, _pending: false } : l,
@@ -256,7 +273,7 @@ export async function syncDispatchQueue(): Promise<number> {
           )
         }
       }
-      setQueue(getQueue().filter((a) => a !== action))
+      removeDispatchQueueAction(action.queueId)
     }
 
     if (action.kind === 'dispatch_update') {
@@ -266,7 +283,7 @@ export async function syncDispatchQueue(): Promise<number> {
       const { error } = await furnace().from('dispatches').update(action.payload).eq('id', resolvedId)
       if (error) continue
       updateLocalDispatch(action.dispatchId, { ...action.payload, _pending: false } as Partial<Dispatch>)
-      setQueue(getQueue().filter((a) => a !== action))
+      removeDispatchQueueAction(action.queueId)
     }
   }
 

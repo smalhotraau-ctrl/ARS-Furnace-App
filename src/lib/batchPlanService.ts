@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { createInFlightLock, insertIdempotent } from './offlineQueueSync'
 import {
   addLocalBatchPlan,
   enqueueBatchAction,
@@ -100,14 +101,18 @@ export function loadLocalBatchPlans(): BatchPlan[] {
 // be able to reference a material that doesn't actually exist in the materials master.
 export { fetchActiveMaterials } from './heatService'
 
-export async function saveBatchPlan(user: AppUser, payload: Omit<BatchPlanInsert, 'created_by' | 'status'>): Promise<BatchPlan> {
+export async function saveBatchPlan(
+  user: AppUser,
+  payload: Omit<BatchPlanInsert, 'created_by' | 'status' | 'idempotency_key'>,
+): Promise<BatchPlan> {
+  const localId = crypto.randomUUID()
   const insert: BatchPlanInsert = {
     ...payload,
     status: BATCH_PLAN_STATUS,
     created_by: user.id,
+    idempotency_key: localId,
   }
 
-  const localId = crypto.randomUUID()
   const now = new Date().toISOString()
   const localPlan: BatchPlan = {
     id: localId,
@@ -139,7 +144,7 @@ export async function saveBatchPlan(user: AppUser, payload: Omit<BatchPlanInsert
 export async function updateBatchPlan(
   user: AppUser,
   plan: BatchPlan,
-  payload: Omit<BatchPlanInsert, 'created_by' | 'status'>,
+  payload: Omit<BatchPlanInsert, 'created_by' | 'status' | 'idempotency_key'>,
 ): Promise<BatchPlan> {
   const now = new Date().toISOString()
   const updated: BatchPlan = {
@@ -219,22 +224,28 @@ export async function acknowledgeBatchPlan(
   return updated
 }
 
-export async function syncBatchPendingActions(): Promise<number> {
+// Only one flush of furnace:batch_plans_queue may run at a time — see offlineQueueSync.ts.
+const withBatchSyncLock = createInFlightLock<number>()
+
+export function syncBatchPendingActions(): Promise<number> {
+  return withBatchSyncLock(runBatchPendingActionsSync)
+}
+
+async function runBatchPendingActionsSync(): Promise<number> {
   if (!navigator.onLine) return getPendingBatchActions().length
 
   const pending = [...getPendingBatchActions()]
 
   for (const action of pending) {
     if (action.kind === 'insert') {
-      const { data, error } = await furnace()
-        .from('batch_plans')
-        .insert(action.payload)
-        .select('*')
-        .single()
+      const { row, error } = await insertIdempotent(
+        furnace,
+        'batch_plans',
+        action.payload as unknown as Record<string, unknown>,
+      )
+      if (error || !row) continue
 
-      if (error) continue
-
-      const synced = rowToBatchPlan(data as Record<string, unknown>)
+      const synced = rowToBatchPlan(row)
       removePendingBatchByLocalId(action.localId)
       updateLocalBatchPlan(action.localId, { ...synced, _localId: undefined, _pending: false })
     }

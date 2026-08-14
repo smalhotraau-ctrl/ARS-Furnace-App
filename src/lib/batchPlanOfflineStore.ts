@@ -50,8 +50,30 @@ export function setCachedBatchPlans(plans: BatchPlan[]) {
   writeJson(CACHE_KEY, plans)
 }
 
+// Unlike heat/output/dispatch queues, this one already removed entries correctly
+// (removePendingBatchByLocalId/removePendingBatchByPlanId below filter by the stable
+// localId/planId value, not object reference), so those already serve as this queue's queueId.
+// It was still missing the idempotency_key needed for server-side ON CONFLICT DO NOTHING
+// protection on the insert kind — backfilled here for whatever's already sitting in a user's
+// browser. update/owner_review are plain UPDATEs against an existing row and are naturally
+// idempotent, so they don't need one.
+function migrateLegacyQueueEntry(action: PendingBatchAction): PendingBatchAction {
+  if (action.kind !== 'insert') return action
+  const payload = action.payload as BatchPlanInsert & { idempotency_key?: string }
+  if (payload.idempotency_key) return action
+  return { ...action, payload: { ...payload, idempotency_key: crypto.randomUUID() } }
+}
+
 export function getPendingBatchActions(): PendingBatchAction[] {
-  return readJson<PendingBatchAction[]>(QUEUE_KEY, [])
+  const raw = readJson<PendingBatchAction[]>(QUEUE_KEY, [])
+  let changed = false
+  const migrated = raw.map((action) => {
+    const fixed = migrateLegacyQueueEntry(action)
+    if (fixed !== action) changed = true
+    return fixed
+  })
+  if (changed) writeJson(QUEUE_KEY, migrated)
+  return migrated
 }
 
 export function setPendingBatchActions(actions: PendingBatchAction[]) {

@@ -5,15 +5,20 @@ const DISPATCHES_KEY = 'furnace:dispatches'
 const DISPATCH_LINES_KEY = 'furnace:dispatch_lines'
 const QUEUE_KEY = 'furnace:dispatch_queue'
 
-export type DispatchQueueAction =
+// Every variant carries its own `queueId` — see heatOfflineStore.ts's HeatQueueAction comment
+// for the full root-cause writeup. In short: removal used to compare action objects by
+// reference (`a !== action`) after a fresh JSON.parse() of localStorage, which never matched
+// anything, so nothing was ever actually removed from this queue either.
+export type DispatchQueueAction = (
   | { kind: 'bundle_insert'; localId: string; payload: Record<string, unknown> }
   | {
       kind: 'dispatch_insert'
       localId: string
       payload: Record<string, unknown>
-      lines: Array<{ localId: string; heat_id: string; kg_dispatched: number }>
+      lines: Array<{ localId: string; heat_id: string; kg_dispatched: number; idempotency_key: string }>
     }
   | { kind: 'dispatch_update'; dispatchId: string; localId?: string; payload: Record<string, unknown> }
+) & { queueId: string }
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -26,6 +31,31 @@ function readJson<T>(key: string, fallback: T): T {
 
 function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value))
+}
+
+// Self-heals queue entries written by older code before `queueId`/`idempotency_key` existed —
+// see heatOfflineStore.ts's migrateLegacyQueueEntry for why this matters (a bare
+// removeDispatchQueueAction(undefined) would otherwise wipe out every other legacy entry that
+// also lacks a queueId).
+function migrateLegacyQueueEntry(raw: DispatchQueueAction): DispatchQueueAction {
+  const action = raw as DispatchQueueAction & {
+    payload?: Record<string, unknown>
+    lines?: Array<{ localId: string; heat_id: string; kg_dispatched: number; idempotency_key?: string }>
+  }
+  const queueId = action.queueId || crypto.randomUUID()
+
+  let payload = action.payload
+  if (payload && !payload.idempotency_key && (action.kind === 'bundle_insert' || action.kind === 'dispatch_insert')) {
+    payload = { ...payload, idempotency_key: crypto.randomUUID() }
+  }
+
+  let lines = action.lines
+  if (lines && lines.some((l) => !l.idempotency_key)) {
+    lines = lines.map((l) => (l.idempotency_key ? l : { ...l, idempotency_key: crypto.randomUUID() }))
+  }
+
+  if (queueId === action.queueId && payload === action.payload && lines === action.lines) return raw
+  return { ...action, queueId, payload, lines } as DispatchQueueAction
 }
 
 export function getCachedBundles(): Bundle[] {
@@ -96,15 +126,33 @@ export function replaceDispatchIdOnLines(oldDispatchId: string, newDispatchId: s
 }
 
 export function getQueue(): DispatchQueueAction[] {
-  return readJson<DispatchQueueAction[]>(QUEUE_KEY, [])
+  const raw = readJson<DispatchQueueAction[]>(QUEUE_KEY, [])
+  let changed = false
+  const migrated = raw.map((action) => {
+    const fixed = migrateLegacyQueueEntry(action)
+    if (fixed !== action) changed = true
+    return fixed
+  })
+  if (changed) writeJson(QUEUE_KEY, migrated)
+  return migrated
 }
 
 export function setQueue(actions: DispatchQueueAction[]) {
   writeJson(QUEUE_KEY, actions)
 }
 
-export function enqueueDispatchAction(action: DispatchQueueAction) {
-  setQueue([...getQueue(), action])
+type DistributiveOmit<T, K extends keyof never> = T extends unknown ? Omit<T, K> : never
+
+export function enqueueDispatchAction(action: DistributiveOmit<DispatchQueueAction, 'queueId'>): DispatchQueueAction {
+  const stamped = { ...action, queueId: crypto.randomUUID() } as DispatchQueueAction
+  setQueue([...getQueue(), stamped])
+  return stamped
+}
+
+// The only correct way to remove a processed action — matches by the stable queueId rather
+// than object reference.
+export function removeDispatchQueueAction(queueId: string) {
+  setQueue(getQueue().filter((a) => a.queueId !== queueId))
 }
 
 export function rowToBundle(row: Record<string, unknown>): Bundle {
