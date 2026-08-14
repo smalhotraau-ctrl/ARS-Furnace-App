@@ -45,10 +45,12 @@ export interface HeatInsert {
 export interface ChargeLine {
   id: string
   heat_id: string
-  bin_bay: string
+  // Real floor usage is a single net weight per material pickup — bin/bay and gross/tare are
+  // optional context, not required entry (03d_Furnace_Module_HeatCharging_Cycle.md §4).
+  bin_bay: string | null
   material_code: string
-  gross_kg: number
-  tare_kg: number
+  gross_kg: number | null
+  tare_kg: number | null
   net_kg: number
   is_mid_heat_addition: boolean
   added_at: string
@@ -60,10 +62,10 @@ export interface ChargeLine {
 
 export interface ChargeLineInsert {
   heat_id: string
-  bin_bay: string
+  bin_bay: string | null
   material_code: string
-  gross_kg: number
-  tare_kg: number
+  gross_kg: number | null
+  tare_kg: number | null
   net_kg: number
   is_mid_heat_addition: boolean
   added_at: string

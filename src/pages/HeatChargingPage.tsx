@@ -30,7 +30,10 @@ import {
   fetchTempReadings,
   finishCycleStage,
   getHeatPendingCount,
+  loadLocalChargeLines,
+  loadLocalCycleLog,
   loadLocalHeats,
+  loadLocalTempReadings,
   startCycleStage,
   startHeat,
   submitCancelRequest,
@@ -145,10 +148,26 @@ export function HeatChargingPage() {
         setTempReadings([])
         return
       }
+      // Render whatever's already cached immediately, before any network round-trip. cycle_log
+      // is permanent/immutable — if a fetch fails (offline, a flaky floor connection) and we fell
+      // back to an empty list instead of the last known state, an already-started or already-
+      // finished stage would flash as "not started", inviting a second Start tap that creates a
+      // duplicate row for the same stage. Same risk applies to charge lines/temp readings, so all
+      // three now fall back to cache instead of blank on failure.
+      setChargeLines(loadLocalChargeLines(selectedHeat.id))
+      setCycleEntries(loadLocalCycleLog(selectedHeat.id))
+      setTempReadings(loadLocalTempReadings(selectedHeat.id))
+
       const [lines, entries, readings] = await Promise.all([
-        navigator.onLine ? fetchChargeLines(selectedHeat.id).catch(() => []) : Promise.resolve([]),
-        fetchCycleLog(selectedHeat.id).catch(() => []),
-        fetchTempReadings(selectedHeat.id).catch(() => []),
+        navigator.onLine
+          ? fetchChargeLines(selectedHeat.id).catch(() => loadLocalChargeLines(selectedHeat.id))
+          : Promise.resolve(loadLocalChargeLines(selectedHeat.id)),
+        navigator.onLine
+          ? fetchCycleLog(selectedHeat.id).catch(() => loadLocalCycleLog(selectedHeat.id))
+          : Promise.resolve(loadLocalCycleLog(selectedHeat.id)),
+        navigator.onLine
+          ? fetchTempReadings(selectedHeat.id).catch(() => loadLocalTempReadings(selectedHeat.id))
+          : Promise.resolve(loadLocalTempReadings(selectedHeat.id)),
       ])
       setChargeLines(lines)
       setCycleEntries(entries)

@@ -516,6 +516,26 @@ export function loadLocalHeats(): Heat[] {
   return getCachedHeats()
 }
 
+// Used both to render instantly from cache before a fetch resolves, and as the fallback when a
+// fetch fails or the device is offline — never wipe the cycle grid / charge lines / temp readings
+// to an empty list just because the network call couldn't complete. cycle_log rows are permanent,
+// so showing a stage as "not started" when it's actually already running or finished risks a
+// Supervisor tapping Start again and creating a second, junk row for that stage.
+export function loadLocalCycleLog(heatId?: string): CycleLogEntry[] {
+  const cached = getCachedCycleLog()
+  return heatId ? cached.filter((e) => e.heat_id === heatId) : cached
+}
+
+export function loadLocalChargeLines(heatId?: string): ChargeLine[] {
+  const cached = getCachedChargeLines()
+  return heatId ? cached.filter((l) => l.heat_id === heatId) : cached
+}
+
+export function loadLocalTempReadings(heatId?: string): TempReading[] {
+  const cached = getCachedTempReadings()
+  return heatId ? cached.filter((r) => r.heat_id === heatId) : cached
+}
+
 async function assignRealHeatNo(localHeat: Heat): Promise<string | null> {
   const furnaceInfo = await fetchFurnaceWithLetter(localHeat.furnace_code)
   if (!furnaceInfo?.heat_code_letter) return null
@@ -599,19 +619,34 @@ async function runHeatQueueSync(): Promise<number> {
       const { row, error } = await insertIdempotent(furnace, 'cycle_log', action.payload)
       if (error || !row) continue
       const synced = rowToCycleEntry(row)
+      // _localId is kept (not cleared) even though this entry is now synced, so a `cycle_finish`
+      // action created before this insert synced — which only knows the entry by its old
+      // client-generated id — can still resolve the real row below, no matter how much later it
+      // actually runs.
       setCachedCycleLog(
         getCachedCycleLog().map((e) =>
-          e._localId === action.localId ? { ...synced, _pending: false } : e,
+          e._localId === action.localId ? { ...synced, _localId: action.localId, _pending: false } : e,
         ),
       )
       removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'cycle_finish') {
+      // action.entryId is whatever id the entry had at the moment Finish was tapped. If Start was
+      // tapped moments earlier and hadn't synced yet, that's still the client-generated local id
+      // — the database assigns its own id on insert, so updating by that stale id would silently
+      // match zero rows (not a Postgres error) and this action would be wrongly treated as a
+      // success, leaving the real row's finish_ts unset forever while the local cache/UI shows it
+      // as finished. Resolve the current real id from cache first (by id, falling back to the
+      // _localId breadcrumb above) before issuing the update.
+      const cachedEntry = getCachedCycleLog().find(
+        (e) => e.id === action.entryId || (action.localId && e._localId === action.localId),
+      )
+      const targetId = cachedEntry?.id ?? action.entryId
       const { error } = await furnace()
         .from('cycle_log')
         .update({ finish_ts: action.finish_ts })
-        .eq('id', action.entryId)
+        .eq('id', targetId)
       if (error) continue
       updateLocalCycleEntry(action.entryId, { finish_ts: action.finish_ts, _pending: false })
       removeHeatQueueAction(action.queueId)

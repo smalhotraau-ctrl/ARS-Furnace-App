@@ -77,9 +77,14 @@ configurable to auto-approve:
 
 ## 4. Charging
 
-`furnace.charge_lines` — Supervisor enters bin/bay, material, gross/tare/net kg per pickup,
-including mid-heat additions (`is_mid_heat_addition = true`) on the same table, timestamped
-via `added_at`. Numeric-only entry, see `03k_Furnace_UX_Guidelines.md`.
+`furnace.charge_lines` — Supervisor enters material + a single net weight (`net_kg`) per
+pickup, including mid-heat additions (`is_mid_heat_addition = true`) on the same table,
+timestamped via `added_at`. Numeric-only entry, see `03k_Furnace_UX_Guidelines.md`.
+
+- Material and `net_kg` are the only required fields — this matches real floor usage, which is
+  one net weight per material, not a gross/tare weigh-in for every pickup.
+- `bin_bay`, `gross_kg`, and `tare_kg` are optional. If both gross and tare are entered, net is
+  auto-computed from them (`gross_kg − tare_kg`); otherwise net is entered directly.
 
 - Plan-vs-actual variance (against `batch_plans.planned_lines`, if a plan is linked) is shown
   live as a [FLAG], never blocking a save.

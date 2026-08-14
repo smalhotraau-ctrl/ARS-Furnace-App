@@ -201,10 +201,10 @@ export function rowToChargeLine(row: Record<string, unknown>): ChargeLine {
   return {
     id: String(row.id),
     heat_id: String(row.heat_id),
-    bin_bay: String(row.bin_bay),
+    bin_bay: row.bin_bay != null ? String(row.bin_bay) : null,
     material_code: String(row.material_code),
-    gross_kg: Number(row.gross_kg),
-    tare_kg: Number(row.tare_kg),
+    gross_kg: row.gross_kg != null ? Number(row.gross_kg) : null,
+    tare_kg: row.tare_kg != null ? Number(row.tare_kg) : null,
     net_kg: Number(row.net_kg),
     is_mid_heat_addition: Boolean(row.is_mid_heat_addition),
     added_at: String(row.added_at),
