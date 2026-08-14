@@ -97,7 +97,17 @@ export async function fetchCycleLog(heatId?: string): Promise<CycleLogEntry[]> {
   const { data, error } = await query
   if (error) throw error
 
-  const serverEntries = (data ?? []).map((row) => rowToCycleEntry(row as Record<string, unknown>))
+  // A server-authoritative refresh (page load, the `online` reconnect listener, etc.) must not
+  // erase `_localId` from an entry that's already synced — a `cycle_finish` action queued before
+  // this refresh (or before its own sync ran) only knows the row by that old client-generated id,
+  // and relies on `_localId` still being on the cache entry to resolve the real row later (see the
+  // cycle_finish handler in runHeatQueueSync). Carrying it forward here closes that gap.
+  const previousById = new Map(getCachedCycleLog().map((e) => [e.id, e]))
+  const serverEntries = (data ?? []).map((row) => {
+    const entry = rowToCycleEntry(row as Record<string, unknown>)
+    const previousLocalId = previousById.get(entry.id)?._localId
+    return previousLocalId ? { ...entry, _localId: previousLocalId } : entry
+  })
   const localEntries = getCachedCycleLog().filter((e) => e._pending && (!heatId || e.heat_id === heatId))
   const merged = new Map<string, CycleLogEntry>()
   for (const e of serverEntries) merged.set(e.id, e)
@@ -292,8 +302,15 @@ export async function startCycleStage(user: AppUser, heatId: string, stage: Cycl
 
 export async function finishCycleStage(entry: CycleLogEntry): Promise<CycleLogEntry> {
   const finish_ts = new Date().toISOString()
-  const updated = { ...entry, finish_ts, _pending: true }
-  updateLocalCycleEntry(entry.id, updated)
+  // `entry` here can be stale: it's whatever object the caller's React state still holds, which
+  // is never refreshed after a background sync reassigns this row's real server id (see the
+  // cycle_insert handler in runHeatQueueSync — cache gets the real id, React state doesn't).
+  // Patching the cache with only the fields that actually changed — never `id`/`_localId` — is
+  // deliberate: spreading the whole (possibly stale) `entry` into the cache patch would silently
+  // overwrite an already-synced entry's real id back to the old local id, which is exactly what
+  // caused cycle_finish's subsequent id resolution (see the cycle_finish handler in
+  // runHeatQueueSync) to target the wrong row and silently update zero rows.
+  updateLocalCycleEntry(entry.id, { finish_ts, _pending: true })
   enqueueHeatAction({
     kind: 'cycle_finish',
     entryId: entry.id,
@@ -301,7 +318,10 @@ export async function finishCycleStage(entry: CycleLogEntry): Promise<CycleLogEn
     finish_ts,
   })
   if (navigator.onLine) void syncHeatQueue()
-  return updated
+  // This merged view is only for the caller's own optimistic UI update (e.g. HeatChargingPage's
+  // `setCycleEntries`) — it never touches the cache, so it's safe for it to still carry the
+  // possibly-stale id the caller already had.
+  return { ...entry, finish_ts, _pending: true }
 }
 
 export async function addTempReading(
