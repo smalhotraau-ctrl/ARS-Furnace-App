@@ -9,6 +9,34 @@
 
 type FurnaceAccessor = () => { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
+// A payload should never carry an `id` into a fresh insert — every table's `id` is
+// server-generated (DEFAULT gen_random_uuid(), see schema.sql), and dedup is meant to run purely
+// on `idempotency_key`. In practice some queue entries still had a client-side `id` attached
+// (legacy entries created before this file existed, back when a queue action that had already
+// succeeded was never actually removed — see the root-cause note above — could carry the id its
+// insert was given on that earlier successful attempt). Sending that id back on a retry collides
+// with the primary key directly: `ON CONFLICT (idempotency_key)` only suppresses a clash on that
+// column, a separate clash on `id` still raises a hard, uncaught 23505 error, which is exactly
+// what surfaced live on heats/cycle_log/heat_cancel_requests.
+//
+// Guarded here for every caller at once: if a payload carries an `id` that already exists in the
+// target table, the row was already written by a previous attempt — fetch it back and reconcile
+// instead of inserting anything (this is the same "confirmed duplicate" path as an
+// idempotency_key conflict, just keyed on the primary key instead). Otherwise `id` is always
+// stripped before the actual insert so the server assigns a fresh one, and dedup continues to run
+// on idempotency_key exactly as before.
+async function resolveExistingById(
+  furnace: FurnaceAccessor,
+  table: string,
+  id: unknown,
+): Promise<{ row: Record<string, unknown> | null; error: unknown } | null> {
+  if (typeof id !== 'string') return null
+  const { data, error } = await furnace().from(table).select('*').eq('id', id).maybeSingle()
+  if (error) return { row: null, error }
+  if (data) return { row: data as Record<string, unknown>, error: null }
+  return null
+}
+
 // INSERT keyed by a client-generated `idempotency_key`, so a retried queue action (a flush that
 // reports ambiguous failure and gets correctly retried, two tabs/devices open at once, a
 // concurrent flush that slips past the in-flight lock, etc.) can never create a second row.
@@ -23,9 +51,14 @@ export async function insertIdempotent(
   table: string,
   payload: Record<string, unknown>,
 ): Promise<{ row: Record<string, unknown> | null; error: unknown }> {
+  const { id, ...rest } = payload
+
+  const byId = await resolveExistingById(furnace, table, id)
+  if (byId) return byId
+
   const { data, error } = await furnace()
     .from(table)
-    .upsert(payload, { onConflict: 'idempotency_key', ignoreDuplicates: true })
+    .upsert(rest, { onConflict: 'idempotency_key', ignoreDuplicates: true })
     .select('*')
 
   if (error) return { row: null, error }
@@ -34,7 +67,7 @@ export async function insertIdempotent(
   const { data: existing, error: fetchError } = await furnace()
     .from(table)
     .select('*')
-    .eq('idempotency_key', payload.idempotency_key as string)
+    .eq('idempotency_key', rest.idempotency_key as string)
     .maybeSingle()
   return { row: (existing as Record<string, unknown> | null) ?? null, error: fetchError }
 }
@@ -43,7 +76,8 @@ export async function insertIdempotent(
 // rows per dispatch). Postgres/PostgREST silently omits conflicting rows from the response when
 // ignoreDuplicates is set, so rows that already existed from an earlier attempt are fetched back
 // by their idempotency_key and merged back in — every payload row is guaranteed to come back in
-// the result unless it genuinely failed.
+// the result unless it genuinely failed. Applies the same legacy-id guard as insertIdempotent
+// (see its comment above) per row before inserting anything.
 export async function insertManyIdempotent(
   furnace: FurnaceAccessor,
   table: string,
@@ -51,28 +85,56 @@ export async function insertManyIdempotent(
 ): Promise<{ rows: Record<string, unknown>[]; error: unknown }> {
   if (payloads.length === 0) return { rows: [], error: null }
 
+  const idsToCheck = payloads.map((p) => p.id).filter((id): id is string => typeof id === 'string')
+
+  const existingById = new Map<string, Record<string, unknown>>()
+  if (idsToCheck.length > 0) {
+    const { data, error } = await furnace().from(table).select('*').in('id', idsToCheck)
+    if (error) return { rows: [], error }
+    for (const row of (data ?? []) as Record<string, unknown>[]) {
+      existingById.set(row.id as string, row)
+    }
+  }
+
+  const alreadySynced: Record<string, unknown>[] = []
+  const toInsert: Record<string, unknown>[] = []
+  for (const payload of payloads) {
+    const { id, ...rest } = payload
+    const matched = typeof id === 'string' ? existingById.get(id) : undefined
+    if (matched) {
+      alreadySynced.push(matched)
+    } else {
+      toInsert.push(rest)
+    }
+  }
+
+  if (toInsert.length === 0) return { rows: alreadySynced, error: null }
+
   const { data, error } = await furnace()
     .from(table)
-    .upsert(payloads, { onConflict: 'idempotency_key', ignoreDuplicates: true })
+    .upsert(toInsert, { onConflict: 'idempotency_key', ignoreDuplicates: true })
     .select('*')
 
-  if (error) return { rows: [], error }
+  if (error) return { rows: alreadySynced, error }
 
   const returned = (data ?? []) as Record<string, unknown>[]
   const returnedKeys = new Set(returned.map((r) => r.idempotency_key))
-  const missingKeys = payloads
+  const missingKeys = toInsert
     .map((p) => p.idempotency_key as string)
     .filter((k) => !returnedKeys.has(k))
 
-  if (missingKeys.length === 0) return { rows: returned, error: null }
+  if (missingKeys.length === 0) return { rows: [...alreadySynced, ...returned], error: null }
 
   const { data: existing, error: fetchError } = await furnace()
     .from(table)
     .select('*')
     .in('idempotency_key', missingKeys)
 
-  if (fetchError) return { rows: returned, error: fetchError }
-  return { rows: [...returned, ...((existing ?? []) as Record<string, unknown>[])], error: null }
+  if (fetchError) return { rows: [...alreadySynced, ...returned], error: fetchError }
+  return {
+    rows: [...alreadySynced, ...returned, ...((existing ?? []) as Record<string, unknown>[])],
+    error: null,
+  }
 }
 
 // Ensures only one flush of a given queue can run at a time. Without this, two triggers firing
