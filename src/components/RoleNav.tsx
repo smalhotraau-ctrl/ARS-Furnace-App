@@ -5,7 +5,16 @@ import { BilingualText } from './ui/BilingualText'
 import { DevRoleSwitcher } from './ui/DevRoleSwitcher'
 import { LanguageToggle } from './ui/LanguageToggle'
 
-export type AppScreen = 'batch' | 'heat' | 'spectro' | 'output' | 'bundling' | 'dispatch' | 'pit' | 'master_admin'
+export type AppScreen =
+  | 'batch'
+  | 'heat'
+  | 'spectro'
+  | 'output'
+  | 'bundling'
+  | 'dispatch'
+  | 'pit'
+  | 'master_admin'
+  | 'costing'
 
 interface NavItem {
   id: AppScreen
@@ -48,6 +57,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'dispatch', en: 'Dispatch', hi: 'डिस्पैच' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
     { id: 'master_admin', en: 'Master Admin', hi: 'मास्टर एडमिन' },
+    { id: 'costing', en: 'Costing', hi: 'कॉस्टिंग' },
   ],
   admin_owner: [
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना' },
@@ -58,6 +68,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'dispatch', en: 'Dispatch', hi: 'डिस्पैच' },
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट' },
     { id: 'master_admin', en: 'Master Admin', hi: 'मास्टर एडमिन' },
+    { id: 'costing', en: 'Costing', hi: 'कॉस्टिंग' },
   ],
 }
 

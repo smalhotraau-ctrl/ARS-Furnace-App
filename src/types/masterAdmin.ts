@@ -1,3 +1,5 @@
+import type { HeatCostingOverridePayload, RateMasterCreatePayload, RateMasterUpdatePayload } from './costing'
+
 export interface Furnace {
   id: string
   code: string
@@ -127,12 +129,21 @@ export interface MaterialYieldStandardUpdatePayload {
   active?: boolean
 }
 
+// rate_master and heat_costing are handled by this same generic request/decide mechanism (see
+// masterAdminService.ts's applyChangeToTarget) even though they belong to the Costing screens,
+// not the five Master Admin entity screens — 03i §5 explicitly lists "rate_master (base entries)"
+// as Master-Admin-covered data, and there is no second maker-checker table in the schema for the
+// heat_costing.material_cost_final override (03i §3), so it reuses this one too, just gated by
+// the 'rate_override' approval_settings row instead of 'master_admin_change' (see
+// furnace.rate_override_auto_approved() in the database).
 export type MasterAdminTargetTable =
   | 'furnaces'
   | 'grade_specs'
   | 'materials'
   | 'material_std_composition'
   | 'material_yield_standards'
+  | 'rate_master'
+  | 'heat_costing'
 
 export type MasterAdminAction = 'create' | 'update'
 
@@ -146,6 +157,9 @@ export type MasterAdminPayload =
   | MaterialStdCompositionUpdatePayload
   | MaterialYieldStandardCreatePayload
   | MaterialYieldStandardUpdatePayload
+  | RateMasterCreatePayload
+  | RateMasterUpdatePayload
+  | HeatCostingOverridePayload
 
 export interface MasterAdminChangeRequest {
   id: string
@@ -167,4 +181,6 @@ export const MASTER_ADMIN_TABLE_LABELS: Record<MasterAdminTargetTable, { en: str
   materials: { en: 'Material', hi: 'मैटेरियल' },
   material_std_composition: { en: 'Material Std. Composition', hi: 'मैटेरियल स्टैंडर्ड संरचना' },
   material_yield_standards: { en: 'Yield Standard', hi: 'यील्ड स्टैंडर्ड' },
+  rate_master: { en: 'Rate Master', hi: 'रेट मास्टर' },
+  heat_costing: { en: 'Material Cost Override', hi: 'मैटेरियल लागत ओवरराइड' },
 }

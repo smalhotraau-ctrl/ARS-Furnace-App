@@ -4,6 +4,7 @@ import { LanguageProvider } from './context/LanguageContext'
 import { RoleNav, type AppScreen } from './components/RoleNav'
 import { BatchPlanPage } from './pages/BatchPlanPage'
 import { BundlingPage } from './pages/BundlingPage'
+import { CostingPage } from './pages/CostingPage'
 import { DispatchPage } from './pages/DispatchPage'
 import { HeatChargingPage } from './pages/HeatChargingPage'
 import { MasterAdminPage } from './pages/MasterAdminPage'
@@ -36,6 +37,8 @@ function AppShell() {
         return <PitFurnacePage />
       case 'master_admin':
         return <MasterAdminPage />
+      case 'costing':
+        return <CostingPage />
     }
   }
 

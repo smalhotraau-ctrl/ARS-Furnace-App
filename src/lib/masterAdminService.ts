@@ -20,6 +20,13 @@ import type {
   MasterAdminPayload,
   MasterAdminTargetTable,
 } from '../types/masterAdmin'
+import type {
+  ApprovalActionType,
+  ApprovalSetting,
+  HeatCostingOverridePayload,
+  RateMasterCreatePayload,
+  RateMasterUpdatePayload,
+} from '../types/costing'
 
 const furnace = () => supabase.schema('furnace')
 
@@ -97,13 +104,46 @@ export async function fetchChangeRequests(): Promise<MasterAdminChangeRequest[]>
 // Defaults to gated (true) if no row exists yet, matching the column default and
 // furnace.master_admin_auto_approved() on the database side.
 export async function fetchRequiresOwnerApproval(): Promise<boolean> {
+  return fetchRequiresOwnerApprovalFor('master_admin_change')
+}
+
+// Generic version — used by the Costing screens too (rate_override gate), same default-gated
+// fallback as above and as furnace.rate_override_auto_approved()/master_admin_auto_approved().
+export async function fetchRequiresOwnerApprovalFor(actionType: ApprovalActionType): Promise<boolean> {
   const { data, error } = await furnace()
     .from('approval_settings')
     .select('requires_owner_approval')
-    .eq('action_type', 'master_admin_change')
+    .eq('action_type', actionType)
     .maybeSingle()
   if (error) throw error
   return data ? Boolean(data.requires_owner_approval) : true
+}
+
+// 03i §6: Owner-only screen, exactly these two configurable action_types — heat-cancel and
+// heat-number-correction are permanently fixed maker-checker and deliberately never surfaced
+// here (see also the CHECK constraint on approval_settings.action_type in schema.sql).
+export async function fetchAllApprovalSettings(): Promise<ApprovalSetting[]> {
+  const { data, error } = await furnace().from('approval_settings').select('*').order('action_type')
+  if (error) throw error
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    action_type: row.action_type as ApprovalActionType,
+    requires_owner_approval: Boolean(row.requires_owner_approval),
+    updated_by: String(row.updated_by),
+    updated_at: String(row.updated_at),
+  }))
+}
+
+export async function updateApprovalSetting(
+  user: AppUser,
+  actionType: ApprovalActionType,
+  requiresOwnerApproval: boolean,
+): Promise<void> {
+  const { error } = await furnace()
+    .from('approval_settings')
+    .update({ requires_owner_approval: requiresOwnerApproval, updated_by: user.id, updated_at: new Date().toISOString() })
+    .eq('action_type', actionType)
+  if (error) throw error
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +260,48 @@ async function applyChangeToTarget(request: ChangeApplication): Promise<void> {
           .eq('id', request.target_id)
         if (error) throw error
       }
+      return
+    }
+
+    case 'rate_master': {
+      if (request.action === 'create') {
+        const payload = request.payload as unknown as RateMasterCreatePayload
+        const { error } = await furnace()
+          .from('rate_master')
+          .insert({
+            ...payload,
+            // A lot's remaining balance starts equal to its lot size; flat_rate entries carry no
+            // quantity at all, per 03i §2.
+            remaining_qty_kg: payload.item_type === 'lot_material' ? payload.quantity_kg : null,
+            updated_by: authoredBy,
+          })
+        if (error) throw error
+      } else {
+        const payload = request.payload as unknown as RateMasterUpdatePayload
+        const { error } = await furnace()
+          .from('rate_master')
+          .update({ ...payload, updated_by: authoredBy, updated_at: new Date().toISOString() })
+          .eq('id', request.target_id)
+        if (error) throw error
+      }
+      return
+    }
+
+    // heat_costing rows are only ever created directly by computeAndSaveHeatCosting
+    // (costingService.ts) as a FIFO computation, never via this request mechanism — the only
+    // heat_costing change ever proposed/decided here is the material_cost_final override (03i §3).
+    case 'heat_costing': {
+      const payload = request.payload as unknown as HeatCostingOverridePayload
+      const { error } = await furnace()
+        .from('heat_costing')
+        .update({
+          material_cost_final: payload.material_cost_final,
+          material_cost_override_reason: payload.material_cost_override_reason,
+          overridden_by: authoredBy,
+          overridden_at: new Date().toISOString(),
+        })
+        .eq('id', request.target_id)
+      if (error) throw error
       return
     }
   }
