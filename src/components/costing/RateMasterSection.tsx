@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { BilingualText } from '../ui/BilingualText'
 import type { Material } from '../../types/masterAdmin'
-import { RATE_ITEM_TYPES, type RateItemType, type RateMasterCreatePayload, type RateMasterRow } from '../../types/costing'
+import type { RateMasterCreatePayload, RateMasterRow } from '../../types/costing'
 
 interface RateMasterSectionProps {
   rows: RateMasterRow[]
@@ -12,44 +12,105 @@ interface RateMasterSectionProps {
   onCreate: (payload: RateMasterCreatePayload) => Promise<void>
 }
 
-const ITEM_TYPE_LABELS: Record<RateItemType, { en: string; hi: string }> = {
-  lot_material: { en: 'Lot material (FIFO)', hi: 'लॉट मैटेरियल (फीफो)' },
-  flat_rate: { en: 'Flat rate', hi: 'फ्लैट रेट' },
+type Mode = 'lot' | 'flat'
+
+interface LotRow {
+  key: number
+  materialCode: string
+  ratePerKg: string
+  quantityKg: string
+}
+
+function emptyLotRow(key: number): LotRow {
+  return { key, materialCode: '', ratePerKg: '', quantityKg: '' }
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export function RateMasterSection({ rows, materials, canPropose, autoApproved, onCreate }: RateMasterSectionProps) {
   const { t } = useLanguage()
   const [adding, setAdding] = useState(false)
-  const [itemType, setItemType] = useState<RateItemType>('lot_material')
-  const [materialCode, setMaterialCode] = useState('')
+  const [mode, setMode] = useState<Mode>('lot')
+
+  // Quick-add table for lot materials — one shared effective_from, per-row material/rate/qty
+  // only (03i §2's minimum: material, rate/kg, quantity_kg). remaining_qty_kg is never entered
+  // here at all — it's set equal to quantity_kg automatically on the write side
+  // (masterAdminService.ts's applyChangeToTarget), same as before this change.
+  const [lotEffectiveFrom, setLotEffectiveFrom] = useState(today)
+  const [lotRows, setLotRows] = useState<LotRow[]>([emptyLotRow(0)])
+  const [nextKey, setNextKey] = useState(1)
+
+  // Flat-rate items never have a quantity at all — no field for it is rendered in this mode,
+  // not just left optional.
   const [flatItem, setFlatItem] = useState('')
-  const [ratePerKg, setRatePerKg] = useState('')
-  const [quantityKg, setQuantityKg] = useState('')
-  const [effectiveFrom, setEffectiveFrom] = useState(() => new Date().toISOString().slice(0, 10))
+  const [flatRatePerKg, setFlatRatePerKg] = useState('')
+  const [flatEffectiveFrom, setFlatEffectiveFrom] = useState(today)
+
   const [submitting, setSubmitting] = useState(false)
 
-  const item = itemType === 'lot_material' ? materialCode : flatItem.trim()
-  const canSubmit =
-    item.trim().length > 0 &&
-    Number(ratePerKg) > 0 &&
-    effectiveFrom &&
-    (itemType === 'flat_rate' || Number(quantityKg) > 0)
+  function updateLotRow(key: number, patch: Partial<LotRow>) {
+    setLotRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)))
+  }
 
-  async function submit() {
-    if (!canSubmit) return
+  function addLotRow() {
+    setLotRows((prev) => [...prev, emptyLotRow(nextKey)])
+    setNextKey((k) => k + 1)
+  }
+
+  function removeLotRow(key: number) {
+    setLotRows((prev) => (prev.length > 1 ? prev.filter((r) => r.key !== key) : prev))
+  }
+
+  function resetLotForm() {
+    setLotRows([emptyLotRow(nextKey)])
+    setNextKey((k) => k + 1)
+    setLotEffectiveFrom(today())
+  }
+
+  const validLotRows = lotRows.filter((r) => r.materialCode && Number(r.ratePerKg) > 0 && Number(r.quantityKg) > 0)
+  const canSubmitLots = validLotRows.length > 0 && lotEffectiveFrom.length > 0
+
+  async function submitLots() {
+    if (!canSubmitLots) return
+    setSubmitting(true)
+    try {
+      // Saved together as one action from the user's point of view — each row is still its own
+      // rate_master row/change-request underneath (no change to the FIFO engine or schema), just
+      // fired off in one sitting instead of one full form per material.
+      for (const row of validLotRows) {
+        await onCreate({
+          item: row.materialCode,
+          item_type: 'lot_material',
+          rate_per_kg: Number(row.ratePerKg),
+          quantity_kg: Number(row.quantityKg),
+          effective_from: lotEffectiveFrom,
+        })
+      }
+      resetLotForm()
+      setAdding(false)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const canSubmitFlat = flatItem.trim().length > 0 && Number(flatRatePerKg) > 0 && flatEffectiveFrom.length > 0
+
+  async function submitFlat() {
+    if (!canSubmitFlat) return
     setSubmitting(true)
     try {
       await onCreate({
-        item: item.trim(),
-        item_type: itemType,
-        rate_per_kg: Number(ratePerKg),
-        quantity_kg: itemType === 'lot_material' ? Number(quantityKg) : null,
-        effective_from: effectiveFrom,
+        item: flatItem.trim(),
+        item_type: 'flat_rate',
+        rate_per_kg: Number(flatRatePerKg),
+        quantity_kg: null,
+        effective_from: flatEffectiveFrom,
       })
-      setMaterialCode('')
       setFlatItem('')
-      setRatePerKg('')
-      setQuantityKg('')
+      setFlatRatePerKg('')
+      setFlatEffectiveFrom(today())
       setAdding(false)
     } finally {
       setSubmitting(false)
@@ -69,7 +130,7 @@ export function RateMasterSection({ rows, materials, canPropose, autoApproved, o
             onClick={() => setAdding(true)}
             className="min-h-10 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 text-sm font-semibold text-emerald-300"
           >
-            {t('Add rate', 'रेट जोड़ें')}
+            {t('Add rates', 'रेट जोड़ें')}
           </button>
         )}
       </div>
@@ -81,101 +142,181 @@ export function RateMasterSection({ rows, materials, canPropose, autoApproved, o
       )}
 
       {adding && (
-        <div className="space-y-3 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Item type *" hi="आइटम प्रकार *" className="font-semibold" />
-            <select
-              value={itemType}
-              onChange={(e) => setItemType(e.target.value as RateItemType)}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            >
-              {RATE_ITEM_TYPES.map((it) => (
-                <option key={it} value={it}>
-                  {t(ITEM_TYPE_LABELS[it].en, ITEM_TYPE_LABELS[it].hi)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {itemType === 'lot_material' ? (
-            <label className="block space-y-2">
-              <BilingualText as="span" en="Material *" hi="मैटेरियल *" className="font-semibold" />
-              <select
-                value={materialCode}
-                onChange={(e) => setMaterialCode(e.target.value)}
-                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-              >
-                <option value="">{t('Select material…', 'मैटेरियल चुनें…')}</option>
-                {materials.map((m) => (
-                  <option key={m.id} value={m.code}>
-                    {m.code} — {m.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <label className="block space-y-2">
-              <BilingualText as="span" en="Item name *" hi="आइटम नाम *" className="font-semibold" />
-              <input
-                value={flatItem}
-                onChange={(e) => setFlatItem(e.target.value)}
-                placeholder="e.g. electricity, labour, overhead, transport"
-                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-              />
-            </label>
-          )}
-
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Rate (₹/kg) *" hi="रेट (₹/किग्रा) *" className="font-semibold" />
-            <input
-              type="number"
-              inputMode="decimal"
-              value={ratePerKg}
-              onChange={(e) => setRatePerKg(e.target.value)}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            />
-          </label>
-
-          {itemType === 'lot_material' && (
-            <label className="block space-y-2">
-              <BilingualText as="span" en="Lot size (kg) *" hi="लॉट साइज़ (किग्रा) *" className="font-semibold" />
-              <input
-                type="number"
-                inputMode="decimal"
-                value={quantityKg}
-                onChange={(e) => setQuantityKg(e.target.value)}
-                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-              />
-            </label>
-          )}
-
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Effective from *" hi="प्रभावी तिथि *" className="font-semibold" />
-            <input
-              type="date"
-              value={effectiveFrom}
-              onChange={(e) => setEffectiveFrom(e.target.value)}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            />
-          </label>
-
+        <div className="space-y-4 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setAdding(false)}
-              className="flex-1 min-h-12 rounded-xl border border-slate-600 text-sm font-semibold text-slate-300"
+              onClick={() => setMode('lot')}
+              className={`min-h-10 flex-1 rounded-xl text-sm font-semibold ${
+                mode === 'lot' ? 'bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-500/40' : 'bg-slate-800 text-slate-300'
+              }`}
             >
-              {t('Cancel', 'रद्द करें')}
+              {t('Lot materials', 'लॉट मैटेरियल')}
             </button>
             <button
               type="button"
-              disabled={!canSubmit || submitting}
-              onClick={() => void submit()}
-              className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              onClick={() => setMode('flat')}
+              className={`min-h-10 flex-1 rounded-xl text-sm font-semibold ${
+                mode === 'flat' ? 'bg-emerald-500/25 text-emerald-200 ring-1 ring-emerald-500/40' : 'bg-slate-800 text-slate-300'
+              }`}
             >
-              {t('Submit', 'भेजें')}
+              {t('Flat rate', 'फ्लैट रेट')}
             </button>
           </div>
+
+          {mode === 'lot' && (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-400">
+                {t(
+                  'Enter as many materials as you need, then save them all together.',
+                  'जितने भी मैटेरियल चाहिए दर्ज करें, फिर सभी को एक साथ सहेजें।',
+                )}
+              </p>
+
+              <label className="block space-y-1">
+                <span className="text-sm font-semibold text-slate-300">{t('Effective from', 'प्रभावी तिथि')}</span>
+                <input
+                  type="date"
+                  value={lotEffectiveFrom}
+                  onChange={(e) => setLotEffectiveFrom(e.target.value)}
+                  className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                />
+              </label>
+
+              <div className="space-y-2">
+                {lotRows.map((row) => (
+                  <div key={row.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 rounded-xl border border-slate-700 bg-slate-800/40 p-2">
+                    <select
+                      value={row.materialCode}
+                      onChange={(e) => updateLotRow(row.key, { materialCode: e.target.value })}
+                      className="min-h-11 min-w-0 rounded-lg border border-slate-600 bg-slate-800 px-2 text-sm"
+                    >
+                      <option value="">{t('Material…', 'मैटेरियल…')}</option>
+                      {materials.map((m) => (
+                        <option key={m.id} value={m.code}>
+                          {m.code}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder={t('₹/kg', '₹/किग्रा')}
+                      value={row.ratePerKg}
+                      onChange={(e) => updateLotRow(row.key, { ratePerKg: e.target.value })}
+                      className="min-h-11 min-w-0 rounded-lg border border-slate-600 bg-slate-800 px-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder={t('kg', 'किग्रा')}
+                      value={row.quantityKg}
+                      onChange={(e) => updateLotRow(row.key, { quantityKg: e.target.value })}
+                      className="min-h-11 min-w-0 rounded-lg border border-slate-600 bg-slate-800 px-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeLotRow(row.key)}
+                      disabled={lotRows.length === 1}
+                      className="min-h-11 rounded-lg px-2 text-sm text-red-300 disabled:opacity-30"
+                      aria-label={t('Remove row', 'पंक्ति हटाएं')}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={addLotRow}
+                className="w-full min-h-10 rounded-xl border border-dashed border-slate-600 text-sm font-semibold text-slate-300"
+              >
+                {t('+ Add row', '+ पंक्ति जोड़ें')}
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdding(false)
+                    resetLotForm()
+                  }}
+                  className="flex-1 min-h-12 rounded-xl border border-slate-600 text-sm font-semibold text-slate-300"
+                >
+                  {t('Cancel', 'रद्द करें')}
+                </button>
+                <button
+                  type="button"
+                  disabled={!canSubmitLots || submitting}
+                  onClick={() => void submitLots()}
+                  className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                >
+                  {submitting
+                    ? t('Saving…', 'सहेजा जा रहा है…')
+                    : validLotRows.length > 0
+                      ? t(`Save ${validLotRows.length} rate(s)`, `${validLotRows.length} रेट सहेजें`)
+                      : t('Save', 'सहेजें')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {mode === 'flat' && (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-400">
+                {t(
+                  'Flat-rate items (electricity, labour, overhead, transport) have no quantity — just a rate.',
+                  'फ्लैट रेट आइटम (इलेक्ट्रिसिटी, लेबर, ओवरहेड, परिवहन) में कोई मात्रा नहीं होती — केवल एक रेट।',
+                )}
+              </p>
+              <label className="block space-y-1">
+                <span className="text-sm font-semibold text-slate-300">{t('Item name *', 'आइटम नाम *')}</span>
+                <input
+                  value={flatItem}
+                  onChange={(e) => setFlatItem(e.target.value)}
+                  placeholder="e.g. electricity, labour, overhead, transport"
+                  className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-semibold text-slate-300">{t('Rate (₹/kg) *', 'रेट (₹/किग्रा) *')}</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={flatRatePerKg}
+                  onChange={(e) => setFlatRatePerKg(e.target.value)}
+                  className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-semibold text-slate-300">{t('Effective from', 'प्रभावी तिथि')}</span>
+                <input
+                  type="date"
+                  value={flatEffectiveFrom}
+                  onChange={(e) => setFlatEffectiveFrom(e.target.value)}
+                  className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                />
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAdding(false)}
+                  className="flex-1 min-h-12 rounded-xl border border-slate-600 text-sm font-semibold text-slate-300"
+                >
+                  {t('Cancel', 'रद्द करें')}
+                </button>
+                <button
+                  type="button"
+                  disabled={!canSubmitFlat || submitting}
+                  onClick={() => void submitFlat()}
+                  className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                >
+                  {submitting ? t('Saving…', 'सहेजा जा रहा है…') : t('Submit', 'भेजें')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
