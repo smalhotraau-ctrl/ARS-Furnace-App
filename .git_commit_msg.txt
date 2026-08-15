@@ -1,8 +1,0 @@
-fix grade_specs re-spec failing with 23505 on duplicate grade_code+element
-
-Unique constraint was enforced across all rows, not just active ones, so
-re-specing a grade_code that already had history under that name always
-collided. Deactivate old rows before inserting the new active ones (never
-the other way round), and only link superseded_by on the rows just
-deactivated so older supersede chains are not corrupted by later re-specs.
-New migration for a partial unique index (active-only) - not run.
