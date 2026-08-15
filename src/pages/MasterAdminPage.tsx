@@ -9,6 +9,7 @@ import { MaterialSection } from '../components/masterAdmin/MaterialSection'
 import { MaterialStdCompositionSection } from '../components/masterAdmin/MaterialStdCompositionSection'
 import { MaterialYieldStandardSection } from '../components/masterAdmin/MaterialYieldStandardSection'
 import { ChangeRequestQueue } from '../components/masterAdmin/ChangeRequestQueue'
+import { UserManagementSection } from '../components/masterAdmin/UserManagementSection'
 import {
   applyDirectChange,
   decideChangeRequest,
@@ -21,6 +22,13 @@ import {
   fetchRequiresOwnerApproval,
   proposeChange,
 } from '../lib/masterAdminService'
+import {
+  decideUserChangeRequest,
+  fetchAllUsers,
+  fetchUserChangeRequests,
+  proposeUserCreate,
+  proposeUserRevoke,
+} from '../lib/userManagementService'
 import type {
   Furnace,
   FurnaceCreatePayload,
@@ -41,8 +49,17 @@ import type {
   MasterAdminPayload,
   MasterAdminTargetTable,
 } from '../types/masterAdmin'
+import type { ManagedUser, UserChangeRequest } from '../types/userManagement'
+import type { UserRole } from '../types/auth'
 
-type Tab = 'furnaces' | 'grade_specs' | 'materials' | 'material_std_composition' | 'material_yield_standards' | 'approvals'
+type Tab =
+  | 'furnaces'
+  | 'grade_specs'
+  | 'materials'
+  | 'material_std_composition'
+  | 'material_yield_standards'
+  | 'users'
+  | 'approvals'
 
 export function MasterAdminPage() {
   const { t } = useLanguage()
@@ -54,6 +71,9 @@ export function MasterAdminPage() {
   const hasAccess = role === 'plant_head' || role === 'admin_owner'
   const canPropose = hasAccess
   const canDecide = role === 'admin_owner'
+  // Pattern A: Plant Head is the only maker for logins. Owner never writes a request row
+  // (and the INSERT policy is Plant-Head-only), matching heat_cancel_requests.
+  const canProposeUsers = role === 'plant_head'
 
   const [tab, setTab] = useState<Tab>('furnaces')
   const [furnaces, setFurnaces] = useState<Furnace[]>([])
@@ -62,6 +82,9 @@ export function MasterAdminPage() {
   const [materialStd, setMaterialStd] = useState<MaterialStdCompositionRow[]>([])
   const [yieldStandards, setYieldStandards] = useState<MaterialYieldStandardRow[]>([])
   const [changeRequests, setChangeRequests] = useState<MasterAdminChangeRequest[]>([])
+  const [users, setUsers] = useState<ManagedUser[]>([])
+  const [userChangeRequests, setUserChangeRequests] = useState<UserChangeRequest[]>([])
+  const [revealedPin, setRevealedPin] = useState<{ username: string; pin: string } | null>(null)
   const [requiresOwnerApproval, setRequiresOwnerApproval] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -78,16 +101,27 @@ export function MasterAdminPage() {
       return
     }
     try {
-      const [nextFurnaces, nextGradeSpecs, nextMaterials, nextMaterialStd, nextYield, nextRequests, nextGate] =
-        await Promise.all([
-          fetchAllFurnaces(),
-          fetchAllGradeSpecs(),
-          fetchAllMaterials(),
-          fetchAllMaterialStdComposition(),
-          fetchAllMaterialYieldStandards(),
-          fetchChangeRequests(),
-          fetchRequiresOwnerApproval(),
-        ])
+      const [
+        nextFurnaces,
+        nextGradeSpecs,
+        nextMaterials,
+        nextMaterialStd,
+        nextYield,
+        nextRequests,
+        nextGate,
+        nextUsers,
+        nextUserRequests,
+      ] = await Promise.all([
+        fetchAllFurnaces(),
+        fetchAllGradeSpecs(),
+        fetchAllMaterials(),
+        fetchAllMaterialStdComposition(),
+        fetchAllMaterialYieldStandards(),
+        fetchChangeRequests(),
+        fetchRequiresOwnerApproval(),
+        fetchAllUsers(),
+        fetchUserChangeRequests(),
+      ])
       setFurnaces(nextFurnaces)
       setGradeSpecs(nextGradeSpecs)
       setMaterials(nextMaterials)
@@ -95,6 +129,8 @@ export function MasterAdminPage() {
       setYieldStandards(nextYield)
       setChangeRequests(nextRequests)
       setRequiresOwnerApproval(nextGate)
+      setUsers(nextUsers)
+      setUserChangeRequests(nextUserRequests)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -162,6 +198,7 @@ export function MasterAdminPage() {
   }
 
   const pendingApprovalCount = changeRequests.filter((r) => r.status === 'pending').length
+  const pendingUserCount = userChangeRequests.filter((r) => r.status === 'pending').length
 
   const TABS: Array<{ id: Tab; en: string; hi: string }> = [
     { id: 'furnaces', en: 'Furnaces', hi: 'फर्नेस' },
@@ -169,6 +206,7 @@ export function MasterAdminPage() {
     { id: 'materials', en: 'Materials', hi: 'मैटेरियल' },
     { id: 'material_std_composition', en: 'Std. Composition', hi: 'स्टैंडर्ड संरचना' },
     { id: 'material_yield_standards', en: 'Yield Standards', hi: 'यील्ड स्टैंडर्ड' },
+    { id: 'users', en: 'Users', hi: 'यूज़र' },
     { id: 'approvals', en: 'Approvals', hi: 'स्वीकृतियाँ' },
   ]
 
@@ -178,8 +216,8 @@ export function MasterAdminPage() {
         <BilingualText as="h1" en="Master Admin" hi="मास्टर एडमिन" className="text-3xl font-bold text-slate-100" />
         <p className="text-sm text-slate-400">
           {t(
-            'Furnaces, grade specs, materials, standard composition and yield standards.',
-            'फर्नेस, ग्रेड स्पेक, मैटेरियल, स्टैंडर्ड संरचना व यील्ड स्टैंडर्ड।',
+            'Furnaces, grade specs, materials, yield standards, and logins.',
+            'फर्नेस, ग्रेड स्पेक, मैटेरियल, यील्ड स्टैंडर्ड व लॉगिन।',
           )}
         </p>
       </header>
@@ -206,6 +244,11 @@ export function MasterAdminPage() {
             {item.id === 'approvals' && pendingApprovalCount > 0 && (
               <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
                 {pendingApprovalCount}
+              </span>
+            )}
+            {item.id === 'users' && pendingUserCount > 0 && (
+              <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
+                {pendingUserCount}
               </span>
             )}
           </button>
@@ -271,6 +314,35 @@ export function MasterAdminPage() {
           }
           onUpdate={(rowId: string, payload: MaterialYieldStandardUpdatePayload) =>
             submitChange('material_yield_standards', 'update', payload, rowId)
+          }
+        />
+      )}
+
+      {!loading && tab === 'users' && (
+        <UserManagementSection
+          users={users}
+          requests={userChangeRequests}
+          canPropose={canProposeUsers}
+          canDecide={canDecide}
+          revealedPin={revealedPin}
+          onDismissPin={() => setRevealedPin(null)}
+          onProposeCreate={(username: string, nextRole: UserRole) =>
+            guarded(async () => {
+              await proposeUserCreate(user, { username, role: nextRole })
+            })
+          }
+          onProposeRevoke={(target: ManagedUser) =>
+            guarded(async () => {
+              await proposeUserRevoke(user, target)
+            })
+          }
+          onDecide={(request, approve, note) =>
+            guarded(async () => {
+              const result = await decideUserChangeRequest(user, request, approve, note)
+              if (result.pin) {
+                setRevealedPin({ username: request.payload.username, pin: result.pin })
+              }
+            })
           }
         />
       )}

@@ -42,6 +42,9 @@ async function loadUserProfile(userId: string): Promise<AppUser | null> {
     .eq('id', userId)
     .maybeSingle()
 
+  // Revoked logins (common.users.active = false) must not get a session into the app — this is
+  // the check User Management relies on. Returning null here makes signIn report "inactive" and
+  // makes onAuthStateChange drop the user, even if the Auth password is still valid.
   if (error || !data || !data.active || !isUserRole(data.role)) return null
 
   return {
