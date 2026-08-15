@@ -7,6 +7,7 @@ import { BundlingPage } from './pages/BundlingPage'
 import { CostingPage } from './pages/CostingPage'
 import { DispatchPage } from './pages/DispatchPage'
 import { HeatChargingPage } from './pages/HeatChargingPage'
+import { LoginScreen } from './pages/LoginScreen'
 import { MasterAdminPage } from './pages/MasterAdminPage'
 import { OutputPage } from './pages/OutputPage'
 import { PitFurnacePage } from './pages/PitFurnacePage'
@@ -16,8 +17,8 @@ function AppShell() {
   const { user, loading } = useAuth()
   const [activeScreen, setActiveScreen] = useState<AppScreen>('batch')
 
-  // Automatic background sign-in is in flight; no login screen is shown.
-  if (loading || !user) return null
+  if (loading) return null
+  if (!user) return <LoginScreen />
 
   function renderScreen() {
     switch (activeScreen) {

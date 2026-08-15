@@ -20,12 +20,21 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-// Temporary: no login screen exists yet. Instead of a fake bypass user, we
-// silently sign in a real Supabase Auth account on app load so a genuine
-// session is established in the background. Remove when a real login
-// screen is wired up.
-const AUTO_SIGNIN_EMAIL = 'sarthak@furnace.local'
-const AUTO_SIGNIN_PASSWORD = '000333'
+// Transition-only bootstrap credentials for the original Sarthak / admin_owner
+// account. Do not auto-sign-in with these on mount anymore — the real login
+// screen is wired — but keep both so that account can still get in if the
+// typed PIN fails (e.g. PIN was never rotated off the original value).
+// Remove together with DevRoleSwitcher once User Management login is confirmed.
+const BOOTSTRAP_EMAIL = 'sarthak@furnace.local'
+const BOOTSTRAP_PASSWORD = '000333'
+
+export const INACTIVE_LOGIN_MESSAGE = 'User profile not found or inactive.'
+export const INVALID_LOGIN_MESSAGE = 'Wrong username or PIN.'
+
+function toAuthEmail(username: string): string {
+  const trimmed = username.trim().toLowerCase()
+  return trimmed.includes('@') ? trimmed : `${trimmed}@furnace.local`
+}
 
 const DEV_USER_ID = import.meta.env.VITE_DEV_USER_ID as string | undefined
 const DEV_ROLE = import.meta.env.VITE_DEV_ROLE as UserRole | undefined
@@ -70,16 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      let { data: { session } } = await supabase.auth.getSession()
-
-      if (!session) {
-        // No login screen exists yet — silently establish a real session.
-        await supabase.auth.signInWithPassword({
-          email: AUTO_SIGNIN_EMAIL,
-          password: AUTO_SIGNIN_PASSWORD,
-        })
-        ;({ data: { session } } = await supabase.auth.getSession())
-      }
+      const { data: { session } } = await supabase.auth.getSession()
 
       if (session?.user) {
         const profile = await loadUserProfile(session.user.id)
@@ -107,14 +107,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = useCallback(async (username: string, password: string) => {
-    const email = username.includes('@') ? username : `${username.toLowerCase()}@furnace.local`
+    const email = toAuthEmail(username)
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return error.message
+    let { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
+    // Transition fallback for the original Sarthak/admin_owner account only:
+    // if the typed PIN is rejected, retry once with the hardcoded bootstrap
+    // password. New User Management logins never take this path. Remove with
+    // BOOTSTRAP_* and DevRoleSwitcher once real login is confirmed.
+    if (error && email === BOOTSTRAP_EMAIL && password !== BOOTSTRAP_PASSWORD) {
+      ;({ data, error } = await supabase.auth.signInWithPassword({
+        email: BOOTSTRAP_EMAIL,
+        password: BOOTSTRAP_PASSWORD,
+      }))
+    }
+
+    if (error) return INVALID_LOGIN_MESSAGE
 
     if (data.user) {
       const profile = await loadUserProfile(data.user.id)
-      if (!profile) return 'User profile not found or inactive.'
+      if (!profile) {
+        await supabase.auth.signOut()
+        return INACTIVE_LOGIN_MESSAGE
+      }
       setUser(profile)
     }
 

@@ -1,5 +1,6 @@
 import type { UserRole } from '../types/auth'
 import { ROLE_LABELS } from '../types/auth'
+import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { BilingualText } from './ui/BilingualText'
 import { DevRoleSwitcher } from './ui/DevRoleSwitcher'
@@ -74,6 +75,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
 
 export function RoleNav({ userId, role, activeScreen, onNavigate }: RoleNavProps) {
   const { t } = useLanguage()
+  const { signOut } = useAuth()
   const items = NAV_BY_ROLE[role]
 
   return (
@@ -89,6 +91,13 @@ export function RoleNav({ userId, role, activeScreen, onNavigate }: RoleNavProps
             <p className="text-xs text-slate-400">{ROLE_LABELS[role].hi}</p>
           </div>
           <DevRoleSwitcher userId={userId} currentRole={role} />
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="inline-flex min-h-11 items-center rounded-xl border border-slate-600 px-3 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+          >
+            {t('Sign out', 'साइन आउट')}
+          </button>
           <ul className="flex flex-wrap gap-2">
             {items.map((item) => {
               const active = activeScreen === item.id
