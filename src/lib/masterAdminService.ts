@@ -185,6 +185,30 @@ async function applyChangeToTarget(request: ChangeApplication): Promise<void> {
 
     case 'grade_specs': {
       const payload = request.payload as unknown as GradeSpecCreatePayload
+
+      // Deactivate the old grade_code's rows BEFORE inserting the new active rows — never the
+      // other way round. furnace.grade_specs_active_grade_code_element_key (see
+      // 23_grade_specs_active_unique_index.sql) only enforces uniqueness among active rows, so
+      // inserting the new active rows first, while the old ones are still active, would collide
+      // with it (23505) whenever a re-spec reuses the same customer-facing grade_code. This
+      // ordering also means there is never a moment with two active rows for the same
+      // grade_code+element. superseded_by is filled in afterwards (once the new rows' ids
+      // exist), and only on the specific rows just deactivated here (captured via .select), not
+      // on every historically-inactive row under this grade_code — otherwise a second re-spec of
+      // an already-re-speced grade_code would overwrite an older row's superseded_by, pointing
+      // it past the version it actually skipped straight to the newest one.
+      let justDeactivatedIds: string[] = []
+      if (payload.supersedes_grade_code) {
+        const { data: deactivated, error: deactivateError } = await furnace()
+          .from('grade_specs')
+          .update({ active: false })
+          .eq('grade_code', payload.supersedes_grade_code)
+          .eq('active', true)
+          .select('id')
+        if (deactivateError) throw deactivateError
+        justDeactivatedIds = (deactivated ?? []).map((r) => String(r.id))
+      }
+
       const rows = payload.elements.map((e) => ({
         grade_code: payload.grade_code,
         element: e.element,
@@ -195,12 +219,13 @@ async function applyChangeToTarget(request: ChangeApplication): Promise<void> {
       }))
       const { data, error } = await furnace().from('grade_specs').insert(rows).select('id')
       if (error) throw error
-      if (payload.supersedes_grade_code) {
+
+      if (justDeactivatedIds.length > 0) {
         const newSpecId = data?.[0]?.id
         const { error: supersedeError } = await furnace()
           .from('grade_specs')
-          .update({ active: false, superseded_by: newSpecId })
-          .eq('grade_code', payload.supersedes_grade_code)
+          .update({ superseded_by: newSpecId })
+          .in('id', justDeactivatedIds)
         if (supersedeError) throw supersedeError
       }
       return
