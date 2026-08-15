@@ -1,9 +1,9 @@
 export const RATE_ITEM_TYPES = ['lot_material', 'flat_rate'] as const
 export type RateItemType = (typeof RATE_ITEM_TYPES)[number]
 
-// item is a materials-master code for lot_material entries (FIFO draw matches this against
-// charge_lines.material_code — see costingService.ts), and free text for flat_rate entries
-// (electricity, labour, overhead, transport, ...) since those aren't materials at all.
+// One row per item, versioned by effective_from. Heat costing uses the latest effective_from
+// <= heat close date for every charged material. item_type / quantity_kg / remaining_qty_kg
+// stay on the row for historical FIFO lots; new writes leave quantity/remaining NULL.
 export interface RateMasterRow {
   id: string
   item: string
@@ -19,15 +19,12 @@ export interface RateMasterRow {
 
 export interface RateMasterCreatePayload {
   item: string
-  item_type: RateItemType
   rate_per_kg: number
-  quantity_kg: number | null
   effective_from: string
 }
 
 export interface RateMasterUpdatePayload {
   rate_per_kg?: number
-  quantity_kg?: number | null
   effective_from?: string
 }
 

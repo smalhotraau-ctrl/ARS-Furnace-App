@@ -4,7 +4,6 @@ import type { ChargeLine, Heat } from '../types/heat'
 import type {
   HeatCostingBaseInputsPayload,
   HeatCostingRow,
-  RateConsumptionLogRow,
   RateMasterRow,
 } from '../types/costing'
 
@@ -22,18 +21,6 @@ function rowToRateMaster(row: Record<string, unknown>): RateMasterRow {
     source_ref_id: row.source_ref_id != null ? String(row.source_ref_id) : null,
     updated_by: String(row.updated_by),
     updated_at: String(row.updated_at),
-  }
-}
-
-function rowToRateConsumptionLog(row: Record<string, unknown>): RateConsumptionLogRow {
-  return {
-    id: String(row.id),
-    heat_id: String(row.heat_id),
-    rate_master_id: String(row.rate_master_id),
-    item: String(row.item),
-    kg_consumed: Number(row.kg_consumed),
-    rate_used: Number(row.rate_used),
-    created_at: String(row.created_at),
   }
 }
 
@@ -73,16 +60,6 @@ export async function fetchRateMaster(): Promise<RateMasterRow[]> {
   return (data ?? []).map((row) => rowToRateMaster(row as Record<string, unknown>))
 }
 
-export async function fetchRateConsumptionLog(heatId: string): Promise<RateConsumptionLogRow[]> {
-  const { data, error } = await furnace()
-    .from('rate_consumption_log')
-    .select('*')
-    .eq('heat_id', heatId)
-    .order('created_at')
-  if (error) throw error
-  return (data ?? []).map((row) => rowToRateConsumptionLog(row as Record<string, unknown>))
-}
-
 export async function fetchAllHeatCostings(): Promise<HeatCostingRow[]> {
   const { data, error } = await furnace()
     .from('heat_costing')
@@ -99,94 +76,73 @@ export async function fetchHeatCostingByHeatId(heatId: string): Promise<HeatCost
 }
 
 // ---------------------------------------------------------------------------
-// FIFO material cost draw (03i §2)
+// Latest-effective-rate material cost (one current rate per item, versioned by
+// effective_from). Same lookup previously used only for flat-rate items, now
+// applied to every charged material. Does not touch remaining_qty_kg or
+// rate_consumption_log.
 // ---------------------------------------------------------------------------
 
-interface FifoLotUpdate {
-  id: string
-  remaining_qty_kg: number
+export function heatCloseDate(heat: Heat): string {
+  return (heat.verified_at ?? heat.updated_at ?? heat.created_at).slice(0, 10)
 }
 
-interface FifoConsumptionRow {
-  heat_id: string
-  rate_master_id: string
-  item: string
-  kg_consumed: number
-  rate_used: number
+export function lookupLatestRate(item: string, closeDate: string, rates: RateMasterRow[]): RateMasterRow | null {
+  const candidates = rates.filter((r) => r.item === item && r.effective_from <= closeDate)
+  if (candidates.length === 0) return null
+  return candidates.reduce((a, b) => (a.effective_from > b.effective_from ? a : b))
 }
 
-export interface FifoDrawResult {
+export interface MaterialCostLine {
+  material_code: string
+  kg: number
+  rate_per_kg: number | null
+  cost: number
+}
+
+export interface MaterialCostPreview {
   materialCost: number
-  consumptionRows: FifoConsumptionRow[]
-  lotUpdates: FifoLotUpdate[]
-  // Charged kg for a material with no lot coverage at all (rate_master has no matching
-  // lot_material entries, or existing lots are fully drawn down) — [FLAG], never blocks costing;
-  // that portion just contributes zero to materialCost and is surfaced to Plant Head/Owner so
-  // they know the figure is understated until a rate is entered.
+  lines: MaterialCostLine[]
   uncovered: Array<{ material_code: string; kg: number }>
 }
 
-// Oldest effective_from lot first; if a heat's charge for one material spans more than one lot,
-// blend proportionally across every lot touched and record one rate_consumption_log row per lot
-// (03i §2). Pure function so it can be shown as a preview before committing any writes.
-export function drawMaterialCostFifo(heatId: string, chargeLines: ChargeLine[], lots: RateMasterRow[]): FifoDrawResult {
+export function computeMaterialCostFromRates(
+  chargeLines: ChargeLine[],
+  rates: RateMasterRow[],
+  closeDate: string,
+): MaterialCostPreview {
   const totals = new Map<string, number>()
   for (const line of chargeLines) {
     totals.set(line.material_code, (totals.get(line.material_code) ?? 0) + line.net_kg)
   }
 
-  const lotsByItem = new Map<string, RateMasterRow[]>()
-  for (const lot of lots) {
-    if (lot.item_type !== 'lot_material') continue
-    const list = lotsByItem.get(lot.item) ?? []
-    list.push(lot)
-    lotsByItem.set(lot.item, list)
-  }
-  for (const list of lotsByItem.values()) {
-    list.sort((a, b) => a.effective_from.localeCompare(b.effective_from))
-  }
-
   let materialCost = 0
-  const consumptionRows: FifoConsumptionRow[] = []
-  const lotUpdates: FifoLotUpdate[] = []
-  const uncovered: FifoDrawResult['uncovered'] = []
+  const lines: MaterialCostLine[] = []
+  const uncovered: MaterialCostPreview['uncovered'] = []
 
-  for (const [materialCode, totalKg] of totals) {
-    let remaining = totalKg
-    for (const lot of lotsByItem.get(materialCode) ?? []) {
-      if (remaining <= 0) break
-      const available = lot.remaining_qty_kg ?? 0
-      if (available <= 0) continue
-      const drawn = Math.min(remaining, available)
-      materialCost += drawn * lot.rate_per_kg
-      consumptionRows.push({ heat_id: heatId, rate_master_id: lot.id, item: materialCode, kg_consumed: drawn, rate_used: lot.rate_per_kg })
-      lotUpdates.push({ id: lot.id, remaining_qty_kg: available - drawn })
-      remaining -= drawn
+  for (const [materialCode, kg] of totals) {
+    const rate = lookupLatestRate(materialCode, closeDate, rates)
+    if (!rate) {
+      lines.push({ material_code: materialCode, kg, rate_per_kg: null, cost: 0 })
+      uncovered.push({ material_code: materialCode, kg })
+      continue
     }
-    if (remaining > 1e-6) {
-      uncovered.push({ material_code: materialCode, kg: remaining })
-    }
+    const cost = kg * rate.rate_per_kg
+    materialCost += cost
+    lines.push({ material_code: materialCode, kg, rate_per_kg: rate.rate_per_kg, cost })
   }
 
-  return { materialCost, consumptionRows, lotUpdates, uncovered }
-}
-
-export async function previewHeatCostingFifo(heatId: string, chargeLines: ChargeLine[]): Promise<FifoDrawResult> {
-  const lots = await fetchRateMaster()
-  return drawMaterialCostFifo(heatId, chargeLines, lots)
+  return { materialCost, lines, uncovered }
 }
 
 // ---------------------------------------------------------------------------
 // Writes — Plant Head / Owner only (Supervisor/QA have zero RLS access to every table here)
 // ---------------------------------------------------------------------------
 
-// Runs the FIFO draw exactly once per heat and commits it: decrements every lot touched,
-// writes one rate_consumption_log row per lot, and creates the heat_costing row with
-// material_cost_final defaulted to the fresh material_cost_computed figure (03i §3 — "always
-// the FIFO-derived figure, calculated fresh, never overwritten"). heat_costing.heat_id is UNIQUE,
-// so a second call for an already-costed heat is also blocked at the database level — this
-// up-front check just avoids re-drawing lots (and double-decrementing remaining_qty_kg) before
-// that constraint would ever fire.
+// Looks up the latest effective rate per charged material and locks that figure into
+// heat_costing once. material_cost_final defaults to the computed figure and is then the
+// everyday actual-cost field (override flow). heat_costing.heat_id is UNIQUE, so a second
+// call for an already-costed heat is also blocked at the database; the up-front check just
+// avoids a duplicate insert error.
 export async function computeAndSaveHeatCosting(
   user: AppUser,
   heat: Heat,
@@ -195,27 +151,15 @@ export async function computeAndSaveHeatCosting(
   const existing = await fetchHeatCostingByHeatId(heat.id)
   if (existing) return existing
 
-  const draw = await previewHeatCostingFifo(heat.id, chargeLines)
-
-  for (const update of draw.lotUpdates) {
-    const { error } = await furnace()
-      .from('rate_master')
-      .update({ remaining_qty_kg: update.remaining_qty_kg, updated_by: user.id, updated_at: new Date().toISOString() })
-      .eq('id', update.id)
-    if (error) throw error
-  }
-
-  if (draw.consumptionRows.length > 0) {
-    const { error } = await furnace().from('rate_consumption_log').insert(draw.consumptionRows)
-    if (error) throw error
-  }
+  const rates = await fetchRateMaster()
+  const preview = computeMaterialCostFromRates(chargeLines, rates, heatCloseDate(heat))
 
   const { data, error } = await furnace()
     .from('heat_costing')
     .insert({
       heat_id: heat.id,
-      material_cost_computed: draw.materialCost,
-      material_cost_final: draw.materialCost,
+      material_cost_computed: preview.materialCost,
+      material_cost_final: preview.materialCost,
       fuel_cost: 0,
       manpower_cost: 0,
       consumables_cost: 0,
@@ -232,11 +176,9 @@ export async function computeAndSaveHeatCosting(
   return rowToHeatCosting(data as Record<string, unknown>)
 }
 
-// Flat-rate items (electricity, labour, overhead, transport, ...) have no quantity/FIFO — 03i §2
-// says to use whichever entry has the latest effective_from <= the heat's close date. 03i §4
-// then calls fuel/manpower/consumables/electrical/transport "base cost inputs" that stay
-// hand-entered rather than fully computed, so this is offered as a non-binding suggestion next
-// to each field (rate x charged kg) rather than silently overwriting whatever Plant Head types.
+// Base-cost suggestions (fuel/manpower/...) stay hand-entered (03i §4). Offered as a
+// non-binding rate × charged-kg hint next to each field using the same latest-effective
+// lookup as material cost.
 const FLAT_RATE_KEYWORDS: Record<'fuel' | 'manpower' | 'consumables' | 'electrical' | 'transport', string[]> = {
   fuel: ['fuel', 'diesel'],
   manpower: ['labour', 'labor', 'manpower'],
@@ -249,14 +191,11 @@ export function suggestFlatRateCost(
   category: keyof typeof FLAT_RATE_KEYWORDS,
   closeDateIso: string,
   chargedNetKg: number,
-  lots: RateMasterRow[],
+  rates: RateMasterRow[],
 ): { rate_per_kg: number; item: string; suggested_cost: number } | null {
   const keywords = FLAT_RATE_KEYWORDS[category]
-  const candidates = lots.filter(
-    (l) =>
-      l.item_type === 'flat_rate' &&
-      l.effective_from <= closeDateIso &&
-      keywords.some((k) => l.item.toLowerCase().includes(k)),
+  const candidates = rates.filter(
+    (l) => l.effective_from <= closeDateIso && keywords.some((k) => l.item.toLowerCase().includes(k)),
   )
   if (candidates.length === 0) return null
   const latest = candidates.reduce((a, b) => (a.effective_from > b.effective_from ? a : b))
@@ -290,4 +229,30 @@ export async function updateHeatCostingBaseInputs(
     .single()
   if (error) throw error
   return rowToHeatCosting(data as Record<string, unknown>)
+}
+
+// Second step after a material_cost_final write: derived cost_per_kg/savings must be a
+// separate UPDATE because the override RLS policy forbids touching those columns in the
+// same statement as material_cost_final.
+export async function refreshHeatCostingDerived(costingId: string): Promise<void> {
+  const { data, error } = await furnace().from('heat_costing').select('*').eq('id', costingId).single()
+  if (error) throw error
+  const costing = rowToHeatCosting(data as Record<string, unknown>)
+  const { data: output } = await furnace()
+    .from('heat_output')
+    .select('ingot_kg')
+    .eq('heat_id', costing.heat_id)
+    .maybeSingle()
+  await updateHeatCostingBaseInputs(
+    costing,
+    {
+      fuel_cost: costing.fuel_cost,
+      manpower_cost: costing.manpower_cost,
+      consumables_cost: costing.consumables_cost,
+      electrical_cost: costing.electrical_cost,
+      transport_cost: costing.transport_cost,
+      selling_price_per_kg: costing.selling_price_per_kg,
+    },
+    Number(output?.ingot_kg ?? 0),
+  )
 }

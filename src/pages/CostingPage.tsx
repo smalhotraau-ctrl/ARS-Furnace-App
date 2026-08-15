@@ -138,7 +138,7 @@ export function CostingPage() {
       <header className="space-y-2">
         <BilingualText as="h1" en="Costing" hi="कॉस्टिंग" className="text-3xl font-bold text-slate-100" />
         <p className="text-sm text-slate-400">
-          {t('Rate master, FIFO material cost, and full heat costing.', 'रेट मास्टर, फीफो मैटेरियल लागत, व पूर्ण हीट कॉस्टिंग।')}
+          {t('Rate master, heat material cost, and full heat costing.', 'रेट मास्टर, हीट मैटेरियल लागत, व पूर्ण हीट कॉस्टिंग।')}
         </p>
       </header>
 

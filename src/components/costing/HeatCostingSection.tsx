@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { BilingualText } from '../ui/BilingualText'
-import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { fetchChargeLines } from '../../lib/heatService'
 import { fetchHeatOutput } from '../../lib/outputService'
-import { drawMaterialCostFifo, fetchHeatCostingByHeatId, fetchRateConsumptionLog, suggestFlatRateCost } from '../../lib/costingService'
+import {
+  computeMaterialCostFromRates,
+  fetchHeatCostingByHeatId,
+  heatCloseDate,
+  suggestFlatRateCost,
+} from '../../lib/costingService'
 import type { ChargeLine, Heat } from '../../types/heat'
 import type { HeatOutput } from '../../types/output'
-import type { HeatCostingBaseInputsPayload, HeatCostingRow, RateConsumptionLogRow, RateMasterRow } from '../../types/costing'
+import type { HeatCostingBaseInputsPayload, HeatCostingRow, RateMasterRow } from '../../types/costing'
 
 interface HeatCostingSectionProps {
   closedHeats: Heat[]
@@ -44,14 +48,13 @@ export function HeatCostingSection({
   const [chargeLines, setChargeLines] = useState<ChargeLine[]>([])
   const [output, setOutput] = useState<HeatOutput | null>(null)
   const [costing, setCosting] = useState<HeatCostingRow | null>(null)
-  const [consumptionLog, setConsumptionLog] = useState<RateConsumptionLogRow[]>([])
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [computing, setComputing] = useState(false)
   const [inputs, setInputs] = useState<HeatCostingBaseInputsPayload>(emptyInputs)
   const [savingInputs, setSavingInputs] = useState(false)
-  const [overrideValue, setOverrideValue] = useState('')
-  const [overrideReason, setOverrideReason] = useState('')
-  const [submittingOverride, setSubmittingOverride] = useState(false)
+  const [actualCost, setActualCost] = useState('')
+  const [actualReason, setActualReason] = useState('')
+  const [submittingActual, setSubmittingActual] = useState(false)
 
   const selectedHeat = closedHeats.find((h) => h.id === selectedHeatId) ?? null
 
@@ -60,16 +63,11 @@ export function HeatCostingSection({
       setChargeLines([])
       setOutput(null)
       setCosting(null)
-      setConsumptionLog([])
       return
     }
     let cancelled = false
     setLoadingDetail(true)
-    void Promise.all([
-      fetchChargeLines(selectedHeatId),
-      fetchHeatOutput(selectedHeatId),
-      fetchHeatCostingByHeatId(selectedHeatId),
-    ])
+    void Promise.all([fetchChargeLines(selectedHeatId), fetchHeatOutput(selectedHeatId), fetchHeatCostingByHeatId(selectedHeatId)])
       .then(([lines, out, existingCosting]) => {
         if (cancelled) return
         setChargeLines(lines)
@@ -87,10 +85,8 @@ export function HeatCostingSection({
               }
             : emptyInputs,
         )
-        return existingCosting ? fetchRateConsumptionLog(selectedHeatId) : Promise.resolve([])
-      })
-      .then((log) => {
-        if (!cancelled) setConsumptionLog(log ?? [])
+        setActualCost(existingCosting ? String(existingCosting.material_cost_final) : '')
+        setActualReason(existingCosting?.material_cost_override_reason ?? '')
       })
       .finally(() => {
         if (!cancelled) setLoadingDetail(false)
@@ -101,7 +97,10 @@ export function HeatCostingSection({
   }, [selectedHeatId])
 
   const chargedNetKg = chargeLines.reduce((sum, l) => sum + l.net_kg, 0)
-  const fifoPreview = selectedHeatId && !costing ? drawMaterialCostFifo(selectedHeatId, chargeLines, rateMaster) : null
+  const ratePreview =
+    selectedHeat && !costing
+      ? computeMaterialCostFromRates(chargeLines, rateMaster, heatCloseDate(selectedHeat))
+      : null
 
   async function handleCompute() {
     if (!selectedHeat) return
@@ -110,7 +109,10 @@ export function HeatCostingSection({
       await onCompute(selectedHeat, chargeLines)
       const fresh = await fetchHeatCostingByHeatId(selectedHeat.id)
       setCosting(fresh)
-      if (fresh) setConsumptionLog(await fetchRateConsumptionLog(selectedHeat.id))
+      if (fresh) {
+        setActualCost(String(fresh.material_cost_final))
+        setActualReason(fresh.material_cost_override_reason ?? '')
+      }
     } finally {
       setComputing(false)
     }
@@ -128,19 +130,20 @@ export function HeatCostingSection({
     }
   }
 
-  async function handleOverride() {
-    if (!costing || !overrideReason.trim() || !Number.isFinite(Number(overrideValue))) return
-    setSubmittingOverride(true)
+  async function handleSaveActual() {
+    if (!costing || !actualReason.trim() || !Number.isFinite(Number(actualCost))) return
+    setSubmittingActual(true)
     try {
-      await onProposeOverride(costing, Number(overrideValue), overrideReason.trim())
-      setOverrideValue('')
-      setOverrideReason('')
+      await onProposeOverride(costing, Number(actualCost), actualReason.trim())
       const fresh = await fetchHeatCostingByHeatId(costing.heat_id)
       setCosting(fresh)
+      if (fresh) setActualCost(String(fresh.material_cost_final))
     } finally {
-      setSubmittingOverride(false)
+      setSubmittingActual(false)
     }
   }
+
+  const needsOwnerForActual = !canOverrideDirect && !overrideAutoApproved
 
   return (
     <section className="space-y-4">
@@ -172,15 +175,27 @@ export function HeatCostingSection({
                 {t('Charged', 'चार्ज किया गया')}: {chargedNetKg.toFixed(1)} kg {t('across', 'में')} {chargeLines.length}{' '}
                 {t('lines', 'लाइनें')}
               </p>
-              {fifoPreview && (
-                <div className="space-y-1 text-sm text-slate-300">
+              {ratePreview && (
+                <div className="space-y-2 text-sm text-slate-300">
                   <p>
-                    {t('Estimated material cost (FIFO)', 'अनुमानित मैटेरियल लागत (फीफो)')}: ₹{fifoPreview.materialCost.toFixed(2)}
+                    {t('Estimated material cost', 'अनुमानित मैटेरियल लागत')}: ₹{ratePreview.materialCost.toFixed(2)}
                   </p>
-                  {fifoPreview.uncovered.length > 0 && (
+                  {ratePreview.lines.length > 0 && (
+                    <ul className="space-y-1 text-xs text-slate-400">
+                      {ratePreview.lines.map((line) => (
+                        <li key={line.material_code}>
+                          {line.material_code}: {line.kg.toFixed(1)} kg
+                          {line.rate_per_kg != null
+                            ? ` @ ₹${line.rate_per_kg}/kg = ₹${line.cost.toFixed(2)}`
+                            : ` — ${t('no rate', 'कोई रेट नहीं')}`}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {ratePreview.uncovered.length > 0 && (
                     <p className="text-amber-300">
-                      {t('No rate coverage for', 'रेट कवरेज नहीं')}:{' '}
-                      {fifoPreview.uncovered.map((u) => `${u.material_code} (${u.kg.toFixed(1)} kg)`).join(', ')}
+                      {t('No rate on close date for', 'बंद तिथि पर रेट नहीं')}:{' '}
+                      {ratePreview.uncovered.map((u) => `${u.material_code} (${u.kg.toFixed(1)} kg)`).join(', ')}
                     </p>
                   )}
                 </div>
@@ -197,8 +212,8 @@ export function HeatCostingSection({
               )}
               <p className="text-xs text-slate-500">
                 {t(
-                  'This draws material cost FIFO from Rate Master and locks it in — it can only be done once per heat.',
-                  'यह रेट मास्टर से फीफो द्वारा मैटेरियल लागत निकालता है और उसे लॉक कर देता है — यह प्रत्येक हीट के लिए केवल एक बार किया जा सकता है।',
+                  'Uses each material’s latest Rate Master rate on or before this heat’s close date. You can then enter the actual material cost below.',
+                  'प्रत्येक मैटेरियल का इस हीट की बंद तिथि तक का नवीनतम रेट मास्टर रेट इस्तेमाल होता है। उसके बाद आप वास्तविक मैटेरियल लागत दर्ज कर सकते हैं।',
                 )}
               </p>
             </div>
@@ -206,10 +221,67 @@ export function HeatCostingSection({
         </div>
 
         {costing && !loadingDetail && (
-          <div className="space-y-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/10 p-4">
+          <div className="space-y-4">
+            {canManage && (
+              <div className="space-y-3 rounded-2xl border-2 border-emerald-500/50 bg-emerald-950/20 p-5">
+                <BilingualText
+                  as="h3"
+                  en="Actual material cost"
+                  hi="वास्तविक मैटेरियल लागत"
+                  className="text-lg font-bold text-emerald-100"
+                />
+                <p className="text-sm text-slate-300">
+                  {t(
+                    'Enter the known actual cost for this heat. The Rate Master figure is only the starting estimate.',
+                    'इस हीट की ज्ञात वास्तविक लागत दर्ज करें। रेट मास्टर आंकड़ा केवल शुरुआती अनुमान है।',
+                  )}
+                </p>
+                <p className="text-sm text-slate-400">
+                  {t('Rate-master estimate', 'रेट-मास्टर अनुमान')}: ₹{costing.material_cost_computed.toFixed(2)}
+                </p>
+                {needsOwnerForActual && (
+                  <p className="text-sm text-amber-200">
+                    {t('This will need Owner approval before it applies.', 'यह लागू होने से पहले मालिक की स्वीकृति की आवश्यकता होगी।')}
+                  </p>
+                )}
+                <label className="block space-y-1">
+                  <span className="text-sm font-semibold text-slate-200">{t('Actual cost (₹) *', 'वास्तविक लागत (₹) *')}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={actualCost}
+                    onChange={(e) => setActualCost(e.target.value)}
+                    className="w-full min-h-12 rounded-xl border border-emerald-500/40 bg-slate-800 px-4 text-lg"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-sm font-semibold text-slate-200">{t('Note *', 'टिप्पणी *')}</span>
+                  <textarea
+                    value={actualReason}
+                    onChange={(e) => setActualReason(e.target.value)}
+                    placeholder={t('e.g. invoice / known mix cost', 'जैसे इनवॉइस / ज्ञात मिक्स लागत')}
+                    className="w-full min-h-20 rounded-xl border border-slate-600 bg-slate-800 px-4 py-2"
+                  />
+                </label>
+                {costing.material_cost_override_reason && (
+                  <p className="text-xs text-emerald-200">
+                    {t('Currently saved', 'वर्तमान में सहेजा गया')}: {costing.material_cost_override_reason}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={submittingActual || !actualReason.trim() || !actualCost}
+                  onClick={() => void handleSaveActual()}
+                  className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
+                >
+                  {t('Save actual cost', 'वास्तविक लागत सहेजें')}
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3 text-sm lg:grid-cols-5">
-              <Stat label={t('Material (computed)', 'मैटेरियल (गणना)')} value={`₹${costing.material_cost_computed.toFixed(2)}`} />
-              <Stat label={t('Material (final)', 'मैटेरियल (अंतिम)')} value={`₹${costing.material_cost_final.toFixed(2)}`} />
+              <Stat label={t('Material (estimate)', 'मैटेरियल (अनुमान)')} value={`₹${costing.material_cost_computed.toFixed(2)}`} />
+              <Stat label={t('Material (actual)', 'मैटेरियल (वास्तविक)')} value={`₹${costing.material_cost_final.toFixed(2)}`} />
               <Stat label={t('Fuel', 'फ्यूल')} value={`₹${costing.fuel_cost.toFixed(2)}`} />
               <Stat label={t('Manpower', 'मैनपावर')} value={`₹${costing.manpower_cost.toFixed(2)}`} />
               <Stat label={t('Consumables', 'उपभोग्य')} value={`₹${costing.consumables_cost.toFixed(2)}`} />
@@ -224,118 +296,56 @@ export function HeatCostingSection({
               />
             </div>
 
-            {costing.material_cost_override_reason && (
-              <p className="rounded-xl border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm text-amber-200">
-                {t('Overridden', 'ओवरराइड किया गया')}: {costing.material_cost_override_reason}
-              </p>
-            )}
-
-            {consumptionLog.length > 0 && (
-              <div className="space-y-1">
-                <BilingualText as="h3" en="Lots consumed (FIFO audit)" hi="उपयोग किए गए लॉट (फीफो ऑडिट)" className="text-sm font-semibold text-slate-300" />
-                <ul className="space-y-1 text-xs text-slate-400 lg:hidden">
-                  {consumptionLog.map((c) => (
-                    <li key={c.id}>
-                      {c.item}: {c.kg_consumed.toFixed(1)} kg @ ₹{c.rate_used}/kg
-                    </li>
-                  ))}
-                </ul>
-                <DesktopTable
-                  columns={[t('Item', 'आइटम'), t('kg', 'किग्रा'), t('₹/kg', '₹/किग्रा')]}
-                >
-                  {consumptionLog.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-800/40">
-                      <DeskTd>{c.item}</DeskTd>
-                      <DeskTd>{c.kg_consumed.toFixed(1)}</DeskTd>
-                      <DeskTd>₹{c.rate_used}</DeskTd>
-                    </tr>
-                  ))}
-                </DesktopTable>
-              </div>
-            )}
-
             {canManage && (
-              <div className="space-y-3 border-t border-slate-700 pt-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
-                <div className="space-y-3">
-                  <BilingualText as="h3" en="Base cost inputs (hand-entered)" hi="बेस लागत इनपुट (हाथ से दर्ज)" className="text-sm font-semibold text-slate-300" />
-                  <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
-                    {(['fuel_cost', 'manpower_cost', 'consumables_cost', 'electrical_cost', 'transport_cost'] as const).map((field) => {
-                      const category = field.replace('_cost', '') as 'fuel' | 'manpower' | 'consumables' | 'electrical' | 'transport'
-                      const closeDate = (selectedHeat?.updated_at ?? selectedHeat?.created_at ?? '').slice(0, 10)
-                      const suggestion = suggestFlatRateCost(category, closeDate, chargedNetKg, rateMaster)
-                      return (
-                        <label key={field} className="block space-y-1">
-                          <span className="text-sm font-semibold text-slate-300">{FIELD_LABELS[field].en}</span>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            value={inputs[field]}
-                            onChange={(e) => setInputs({ ...inputs, [field]: Number(e.target.value) })}
-                            className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
-                          />
-                          {suggestion && (
-                            <button
-                              type="button"
-                              onClick={() => setInputs({ ...inputs, [field]: Number(suggestion.suggested_cost.toFixed(2)) })}
-                              className="text-xs text-emerald-300 underline"
-                            >
-                              {t('Suggested', 'सुझाया गया')}: ₹{suggestion.suggested_cost.toFixed(2)} ({suggestion.item} @ ₹{suggestion.rate_per_kg}/kg)
-                            </button>
-                          )}
-                        </label>
-                      )
-                    })}
-                    <label className="block space-y-1">
-                      <span className="text-sm font-semibold text-slate-300">{t('Selling price (₹/kg)', 'बिक्री मूल्य (₹/किग्रा)')}</span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={inputs.selling_price_per_kg}
-                        onChange={(e) => setInputs({ ...inputs, selling_price_per_kg: Number(e.target.value) })}
-                        className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
-                      />
-                    </label>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={savingInputs}
-                    onClick={() => void handleSaveInputs()}
-                    className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
-                  >
-                    {t('Save & recompute cost/kg', 'सहेजें व लागत/किग्रा फिर से गणना करें')}
-                  </button>
+              <div className="space-y-3 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
+                <BilingualText as="h3" en="Base cost inputs (hand-entered)" hi="बेस लागत इनपुट (हाथ से दर्ज)" className="text-sm font-semibold text-slate-300" />
+                <div className="space-y-3 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
+                  {(['fuel_cost', 'manpower_cost', 'consumables_cost', 'electrical_cost', 'transport_cost'] as const).map((field) => {
+                    const category = field.replace('_cost', '') as 'fuel' | 'manpower' | 'consumables' | 'electrical' | 'transport'
+                    const closeDate = selectedHeat ? heatCloseDate(selectedHeat) : ''
+                    const suggestion = suggestFlatRateCost(category, closeDate, chargedNetKg, rateMaster)
+                    return (
+                      <label key={field} className="block space-y-1">
+                        <span className="text-sm font-semibold text-slate-300">{FIELD_LABELS[field].en}</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={inputs[field]}
+                          onChange={(e) => setInputs({ ...inputs, [field]: Number(e.target.value) })}
+                          className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                        />
+                        {suggestion && (
+                          <button
+                            type="button"
+                            onClick={() => setInputs({ ...inputs, [field]: Number(suggestion.suggested_cost.toFixed(2)) })}
+                            className="text-xs text-emerald-300 underline"
+                          >
+                            {t('Suggested', 'सुझाया गया')}: ₹{suggestion.suggested_cost.toFixed(2)} ({suggestion.item} @ ₹
+                            {suggestion.rate_per_kg}/kg)
+                          </button>
+                        )}
+                      </label>
+                    )
+                  })}
+                  <label className="block space-y-1">
+                    <span className="text-sm font-semibold text-slate-300">{t('Selling price (₹/kg)', 'बिक्री मूल्य (₹/किग्रा)')}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={inputs.selling_price_per_kg}
+                      onChange={(e) => setInputs({ ...inputs, selling_price_per_kg: Number(e.target.value) })}
+                      className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                    />
+                  </label>
                 </div>
-
-                <div className="space-y-3 border-t border-slate-700 pt-4 lg:border-t-0 lg:pt-0">
-                  <BilingualText as="h3" en="Override material cost" hi="मैटेरियल लागत ओवरराइड" className="text-sm font-semibold text-slate-300" />
-                  {!canOverrideDirect && !overrideAutoApproved && (
-                    <p className="text-xs text-amber-300">
-                      {t('This will need Owner approval before it applies.', 'यह लागू होने से पहले मालिक की स्वीकृति की आवश्यकता होगी।')}
-                    </p>
-                  )}
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={overrideValue}
-                    onChange={(e) => setOverrideValue(e.target.value)}
-                    placeholder={t('New material cost (₹)', 'नई मैटेरियल लागत (₹)')}
-                    className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
-                  />
-                  <textarea
-                    value={overrideReason}
-                    onChange={(e) => setOverrideReason(e.target.value)}
-                    placeholder={t('Reason (required)', 'कारण (आवश्यक)')}
-                    className="w-full min-h-20 rounded-xl border border-slate-600 bg-slate-800 px-4 py-2"
-                  />
-                  <button
-                    type="button"
-                    disabled={submittingOverride || !overrideReason.trim() || !overrideValue}
-                    onClick={() => void handleOverride()}
-                    className="min-h-12 w-full rounded-xl border border-amber-500/40 bg-amber-500/10 text-sm font-semibold text-amber-200 disabled:opacity-50"
-                  >
-                    {t('Submit override', 'ओवरराइड भेजें')}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={savingInputs}
+                  onClick={() => void handleSaveInputs()}
+                  className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50 lg:w-auto lg:px-6"
+                >
+                  {t('Save & recompute cost/kg', 'सहेजें व लागत/किग्रा फिर से गणना करें')}
+                </button>
               </div>
             )}
           </div>

@@ -27,6 +27,7 @@ import type {
   RateMasterCreatePayload,
   RateMasterUpdatePayload,
 } from '../types/costing'
+import { refreshHeatCostingDerived } from './costingService'
 
 const furnace = () => supabase.schema('furnace')
 
@@ -294,10 +295,12 @@ async function applyChangeToTarget(request: ChangeApplication): Promise<void> {
         const { error } = await furnace()
           .from('rate_master')
           .insert({
-            ...payload,
-            // A lot's remaining balance starts equal to its lot size; flat_rate entries carry no
-            // quantity at all, per 03i §2.
-            remaining_qty_kg: payload.item_type === 'lot_material' ? payload.quantity_kg : null,
+            item: payload.item,
+            item_type: 'lot_material',
+            rate_per_kg: payload.rate_per_kg,
+            quantity_kg: null,
+            remaining_qty_kg: null,
+            effective_from: payload.effective_from,
             updated_by: authoredBy,
           })
         if (error) throw error
@@ -312,9 +315,9 @@ async function applyChangeToTarget(request: ChangeApplication): Promise<void> {
       return
     }
 
-    // heat_costing rows are only ever created directly by computeAndSaveHeatCosting
-    // (costingService.ts) as a FIFO computation, never via this request mechanism — the only
-    // heat_costing change ever proposed/decided here is the material_cost_final override (03i §3).
+    // heat_costing rows are only ever created by computeAndSaveHeatCosting. The everyday
+    // actual-cost write is material_cost_final (gated by rate_override). quantity/FIFO
+    // bookkeeping is no longer part of this path.
     case 'heat_costing': {
       const payload = request.payload as unknown as HeatCostingOverridePayload
       const { error } = await furnace()
@@ -327,6 +330,7 @@ async function applyChangeToTarget(request: ChangeApplication): Promise<void> {
         })
         .eq('id', request.target_id)
       if (error) throw error
+      if (request.target_id) await refreshHeatCostingDerived(request.target_id)
       return
     }
   }

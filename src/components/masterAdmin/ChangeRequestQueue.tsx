@@ -34,7 +34,7 @@ function summarizePayload(request: MasterAdminChangeRequest): string {
         : JSON.stringify(p)
     case 'rate_master':
       return request.action === 'create'
-        ? `${p.item ?? ''} (${p.item_type ?? ''}) — ₹${p.rate_per_kg ?? ''}/kg from ${p.effective_from ?? ''}`
+        ? `${p.item ?? ''} — ₹${p.rate_per_kg ?? ''}/kg from ${p.effective_from ?? ''}`
         : JSON.stringify(p)
     case 'heat_costing':
       return `Override material cost to ₹${p.material_cost_final ?? ''} — ${p.material_cost_override_reason ?? ''}`
