@@ -6,6 +6,7 @@ import { BatchPlanPage } from './pages/BatchPlanPage'
 import { BundlingPage } from './pages/BundlingPage'
 import { DispatchPage } from './pages/DispatchPage'
 import { HeatChargingPage } from './pages/HeatChargingPage'
+import { MasterAdminPage } from './pages/MasterAdminPage'
 import { OutputPage } from './pages/OutputPage'
 import { PitFurnacePage } from './pages/PitFurnacePage'
 import { SpectroPage } from './pages/SpectroPage'
@@ -33,6 +34,8 @@ function AppShell() {
         return <DispatchPage />
       case 'pit':
         return <PitFurnacePage />
+      case 'master_admin':
+        return <MasterAdminPage />
     }
   }
 
