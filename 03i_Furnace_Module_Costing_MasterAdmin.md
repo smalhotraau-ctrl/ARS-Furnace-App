@@ -13,30 +13,32 @@
 RLS-enforced zero rows returned, even on a direct API call. Only Plant Head and Owner can see
 or touch anything here.
 
-## 2. Rate master — FIFO costing
+## 2. Rate master — current rate per material
 
-`furnace.rate_master` splits into two kinds of item:
+`furnace.rate_master` is one current rate/kg per item, versioned by `effective_from`. There
+is no lot-vs-flat split and no quantity field in the UI. Every item (charged materials and
+non-material rates such as electricity, labour, overhead, transport) is the same shape:
+item name, `rate_per_kg`, `effective_from`.
 
-- **Lot materials** (ingot, returns, Al ingot, Si, Cu, scrap, flux, degassing) — each entry
-  has a `quantity_kg` (lot size) and `remaining_qty_kg`. As heats charge these materials,
-  cost is drawn **FIFO — oldest `effective_from` lot first** — decrementing `remaining_qty_kg`
-  lot by lot until the charged kg is fully accounted for. If a single heat's charge spans more
-  than one lot, blend the rate proportionally across the lots consumed and write one
-  `rate_consumption_log` row per lot touched.
-- **Flat-rate items** (electricity, labour, overhead, transport) — no quantity, no FIFO. Use
-  whichever entry has the latest `effective_from <= heat close date`.
+A heat's material cost uses whichever rate was in effect for each charged material — the
+latest `effective_from <= heat close date`. Charged kg with no matching rate contributes
+zero and is flagged in the UI; it never blocks costing.
+
+`quantity_kg`, `remaining_qty_kg`, and `furnace.rate_consumption_log` remain in the schema
+for historical FIFO lots. The app does not write them. Do not drop existing data.
 
 `rate_master.source_ref_id` is an empty placeholder in v1 — reserved for the future Raw
 Material app to populate directly from its own material-receipt records. No schema change
 will be needed when that integration is built; just start populating this column.
 
-## 3. Rate override (Plant Head maker / Owner checker, configurable)
+## 3. Actual material cost (Plant Head maker / Owner checker, configurable)
 
-- `heat_costing.material_cost_computed` — always the FIFO-derived figure, calculated fresh,
-  never overwritten.
-- `heat_costing.material_cost_final` — what the rest of the costing math actually uses.
-  Defaults to `material_cost_computed`. Plant Head can propose an override with a reason.
-- Whether the override applies immediately or needs Owner sign-off depends on
+- `heat_costing.material_cost_computed` — the Rate Master estimate (latest effective rate ×
+  charged kg), calculated once when costing is computed, never overwritten.
+- `heat_costing.material_cost_final` — what the rest of the costing math actually uses, and
+  the **everyday** field for entering a known actual cost (invoice / known mix). Defaults to
+  `material_cost_computed`. Plant Head enters the actual figure with a reason.
+- Whether that write applies immediately or needs Owner sign-off depends on
   `approval_settings.requires_owner_approval` for `rate_override` — gated by default at
   launch, configurable by Owner later.
 
@@ -80,8 +82,9 @@ maker-checker regardless of this table (see `03d`).
 ## Acceptance criteria
 
 - [ ] Supervisor and QA have zero access to costing or Master Admin, enforced via RLS.
-- [ ] Lot materials costed FIFO; flat-rate items use latest effective rate.
-- [ ] Rate override is Plant-Head-maker, gated by `approval_settings` (default: gated).
+- [ ] Every material uses the latest `effective_from <= heat close date`; no FIFO lot draw.
+- [ ] Actual material cost (`material_cost_final`) is Plant-Head-maker, gated by
+      `approval_settings` `rate_override` (default: gated).
 - [ ] Master Admin edits are Plant-Head-maker/Owner-checker, gated by `approval_settings`
       (default: gated).
 - [ ] Grade re-specs always create a new grade_code; existing specs are immutable.
