@@ -131,7 +131,7 @@ export function SpectroReportForm({
         type="button"
         disabled={disabled || submitting || !allFilled}
         onClick={() => void handleSave(null)}
-        className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+        className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
       >
         {t('Save Report', 'रिपोर्ट सहेजें')}
       </button>

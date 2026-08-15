@@ -21,7 +21,7 @@ export function DispatchRecordedBanner({ dispatch, lines, heatNoById, onDismiss 
     <section className="rounded-2xl border-2 border-emerald-500 bg-emerald-950/60 p-6 shadow-lg shadow-emerald-950/50">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-slate-950">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-on-accent">
             <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="3.5">
               <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>

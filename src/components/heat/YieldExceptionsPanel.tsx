@@ -36,7 +36,7 @@ export function YieldExceptionsPanel({ flags, heats, onAcknowledge }: YieldExcep
     <section className="space-y-3 rounded-2xl border-2 border-amber-500 bg-amber-950/30 p-5">
       <div className="flex items-center justify-between">
         <BilingualText as="h2" en="Yield Exceptions" hi="यील्ड अपवाद" className="text-lg font-bold text-amber-200" />
-        <span className="inline-flex items-center rounded-full bg-amber-500 px-3 py-1 text-sm font-extrabold text-slate-950">
+        <span className="inline-flex items-center rounded-full bg-amber-500 px-3 py-1 text-sm font-extrabold text-on-accent">
           {flags.length} {t('open', 'खुला')}
         </span>
       </div>
@@ -70,7 +70,7 @@ export function YieldExceptionsPanel({ flags, heats, onAcknowledge }: YieldExcep
                   type="button"
                   disabled={busyId === flag.id}
                   onClick={() => void handleAcknowledge(flag)}
-                  className="min-h-11 rounded-lg bg-amber-500 px-4 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                  className="min-h-11 rounded-lg bg-amber-500 px-4 text-sm font-semibold text-on-accent disabled:opacity-50"
                 >
                   {t('Acknowledge', 'स्वीकार करें')}
                 </button>

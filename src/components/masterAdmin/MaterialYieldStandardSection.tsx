@@ -144,7 +144,7 @@ export function MaterialYieldStandardSection({
               type="button"
               disabled={!canSubmit || submitting}
               onClick={() => void submit()}
-              className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
             >
               {t('Submit', 'भेजें')}
             </button>
@@ -180,7 +180,7 @@ export function MaterialYieldStandardSection({
                             setEditingId(null),
                           )
                         }
-                        className="rounded-lg bg-emerald-500 px-2 py-1 text-xs font-semibold text-slate-950"
+                        className="rounded-lg bg-emerald-500 px-2 py-1 text-xs font-semibold text-on-accent"
                       >
                         {t('Save', 'सहेजें')}
                       </button>

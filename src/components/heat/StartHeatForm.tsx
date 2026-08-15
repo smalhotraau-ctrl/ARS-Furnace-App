@@ -169,7 +169,7 @@ export function StartHeatForm({ furnaces, batchPlans, gradeCodes, disabled = fal
           type="button"
           disabled={disabled || submitting}
           onClick={() => void handleSubmit(false)}
-          className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+          className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
         >
           {t('Start Heat', 'हीट शुरू करें')}
         </button>
@@ -213,7 +213,7 @@ export function StartHeatForm({ furnaces, batchPlans, gradeCodes, disabled = fal
                 type="button"
                 disabled={disabled || submitting || !emergencyAck}
                 onClick={() => void handleSubmit(true)}
-                className="min-h-14 w-full rounded-xl bg-amber-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+                className="min-h-14 w-full rounded-xl bg-amber-500 text-lg font-semibold text-on-accent disabled:opacity-50"
               >
                 {t('Confirm Emergency Start', 'पुष्टि करें')}
               </button>

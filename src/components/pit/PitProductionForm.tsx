@@ -113,7 +113,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
             type="button"
             disabled={disabled || !stepOneValid}
             onClick={() => setStep(1)}
-            className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+            className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
           >
             {t('Next', 'आगे')}
           </button>
@@ -135,7 +135,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
               type="button"
               disabled={disabled || !stepTwoValid}
               onClick={() => setStep(2)}
-              className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+              className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
             >
               {t('Next', 'आगे')}
             </button>
@@ -158,7 +158,7 @@ export function PitProductionForm({ heats, disabled = false, onSubmit }: PitProd
               type="button"
               disabled={disabled || !stepThreeValid || submitting}
               onClick={() => void handleSave()}
-              className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+              className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
             >
               {t('Save', 'सहेजें')}
             </button>

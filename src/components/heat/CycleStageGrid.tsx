@@ -78,7 +78,7 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
               {isDone && latest ? (
                 <div className="mt-3 w-full space-y-1">
                   <span
-                    className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-lg font-bold text-slate-950"
+                    className="save-toast-check mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-lg font-bold text-on-accent"
                     aria-hidden
                   >
                     ✓
@@ -99,7 +99,7 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
                     type="button"
                     disabled={disabled}
                     onClick={() => void onFinish(latest)}
-                    className="mt-3 min-h-11 w-full rounded-xl bg-amber-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                    className="mt-3 min-h-11 w-full rounded-xl bg-amber-500 text-sm font-semibold text-on-accent disabled:opacity-50"
                   >
                     {t('Finish', 'समाप्त')}
                   </button>
@@ -109,7 +109,7 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
                   type="button"
                   disabled={disabled}
                   onClick={() => void onStart(stage)}
-                  className="mt-3 min-h-11 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                  className="mt-3 min-h-11 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
                 >
                   {t('Start', 'शुरू')}
                 </button>

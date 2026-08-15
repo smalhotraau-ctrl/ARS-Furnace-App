@@ -62,7 +62,7 @@ export function BundleForm({ disabled = false, onSubmit }: BundleFormProps) {
         type="button"
         disabled={disabled || submitting || !valid}
         onClick={() => void handleSave()}
-        className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+        className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
       >
         {t('Save Bundle', 'बंडल सहेजें')}
       </button>

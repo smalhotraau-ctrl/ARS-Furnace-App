@@ -41,7 +41,7 @@ export function ExpectedCompositionPanel({ composition }: ExpectedCompositionPan
               <div className="flex items-center gap-3">
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold ${
-                    inSpec ? 'bg-emerald-500 text-slate-950' : 'bg-red-500 text-white'
+                    inSpec ? 'bg-emerald-500 text-on-accent' : 'bg-red-500 text-white'
                   }`}
                 >
                   {inSpec ? '✓' : '✕'}

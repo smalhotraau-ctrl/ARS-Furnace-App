@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { RoleNav, type AppScreen } from './components/RoleNav'
 import { BatchPlanPage } from './pages/BatchPlanPage'
 import { BundlingPage } from './pages/BundlingPage'
@@ -44,7 +45,7 @@ function AppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
+    <div className="min-h-screen bg-slate-900 text-slate-100 antialiased">
       <RoleNav userId={user!.id} role={user!.role} activeScreen={activeScreen} onNavigate={setActiveScreen} />
       {renderScreen()}
     </div>
@@ -53,11 +54,13 @@ function AppShell() {
 
 function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <AppShell />
-      </AuthProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   )
 }
 

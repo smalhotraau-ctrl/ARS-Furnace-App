@@ -71,7 +71,7 @@ export function TempReadingForm({ disabled = false, onSubmit }: TempReadingFormP
         type="button"
         disabled={disabled || submitting || parseNumericField(value) == null}
         onClick={() => void handleSave()}
-        className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+        className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
       >
         {t('Save Temp', 'तापमान सहेजें')}
       </button>

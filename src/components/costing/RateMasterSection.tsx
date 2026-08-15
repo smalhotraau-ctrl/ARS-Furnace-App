@@ -250,7 +250,7 @@ export function RateMasterSection({ rows, materials, canPropose, autoApproved, o
                   type="button"
                   disabled={!canSubmitLots || submitting}
                   onClick={() => void submitLots()}
-                  className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                  className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
                 >
                   {submitting
                     ? t('Saving…', 'सहेजा जा रहा है…')
@@ -310,7 +310,7 @@ export function RateMasterSection({ rows, materials, canPropose, autoApproved, o
                   type="button"
                   disabled={!canSubmitFlat || submitting}
                   onClick={() => void submitFlat()}
-                  className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                  className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
                 >
                   {submitting ? t('Saving…', 'सहेजा जा रहा है…') : t('Submit', 'भेजें')}
                 </button>

@@ -55,7 +55,7 @@ export function PitHeatList({ heats, selectedId, onSelect, showQualityStatus = f
                 <div className="mt-3 flex items-center gap-2">
                   <span
                     className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${
-                      qualityDone ? 'bg-emerald-500 text-slate-950' : 'bg-slate-600 text-slate-200'
+                      qualityDone ? 'bg-emerald-500 text-on-accent' : 'bg-slate-600 text-slate-200'
                     }`}
                   >
                     {qualityDone ? '✓' : '·'}

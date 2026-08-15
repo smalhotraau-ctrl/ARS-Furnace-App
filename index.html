@@ -1,11 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#0a1628" />
     <title>Furnace</title>
+    <script>
+      try {
+        var t = localStorage.getItem('furnace:theme')
+        if (t === 'light') {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+          document.documentElement.style.colorScheme = 'light'
+          var m = document.querySelector('meta[name="theme-color"]')
+          if (m) m.setAttribute('content', '#eef4fa')
+        } else {
+          document.documentElement.classList.add('dark')
+          document.documentElement.classList.remove('light')
+          document.documentElement.style.colorScheme = 'dark'
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -104,7 +104,7 @@ export function DispatchForm({ options, onSubmit, onCancel }: DispatchFormProps)
               type="button"
               disabled={!stepOneValid}
               onClick={() => setStep(1)}
-              className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+              className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
             >
               {t('Next', 'आगे')}
             </button>
@@ -127,7 +127,7 @@ export function DispatchForm({ options, onSubmit, onCancel }: DispatchFormProps)
               type="button"
               disabled={!stepTwoValid || submitting}
               onClick={() => void handleSave()}
-              className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+              className="min-h-14 flex-1 rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
             >
               {t('Save Dispatch', 'डिस्पैच सहेजें')}
             </button>

@@ -52,7 +52,7 @@ export function OwnerReviewForm({ plan, disabled = false, onSubmit }: OwnerRevie
         type="button"
         disabled={disabled || submitting}
         onClick={() => void handleAcknowledge()}
-        className="min-h-14 w-full rounded-xl bg-amber-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+        className="min-h-14 w-full rounded-xl bg-amber-500 text-lg font-semibold text-on-accent disabled:opacity-50"
       >
         {t('Acknowledge', 'स्वीकार करें')}
       </button>

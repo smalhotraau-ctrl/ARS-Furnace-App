@@ -1,1 +1,225 @@
 @import "tailwindcss";
+
+@theme {
+  --color-on-accent: #0b1a12;
+  --font-sans: "Segoe UI", "Noto Sans", "Noto Sans Devanagari", system-ui, sans-serif;
+}
+
+/* Default = dark (matches live app and persisted default). html.light remaps
+   chrome + status-surface tokens so existing slate/emerald/amber/rose utilities
+   stay readable. emerald-500 / amber-500 / red-500 stay saturated in both modes.
+   --color-on-accent is always near-black for text on those bright buttons. */
+
+html.dark,
+:root {
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #93a8c2;
+  --color-slate-500: #6b849e;
+  --color-slate-600: #4a6280;
+  --color-slate-700: #2d4563;
+  --color-slate-800: #173049;
+  --color-slate-900: #0a1628;
+  --color-slate-950: #06101c;
+
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-300: #5ee9b0;
+  --color-emerald-400: #2dd4a0;
+  --color-emerald-500: #11d489;
+  --color-emerald-600: #05b36f;
+  --color-emerald-700: #047857;
+  --color-emerald-800: #065f46;
+  --color-emerald-900: #064e3b;
+  --color-emerald-950: #022c22;
+
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f5b400;
+  --color-amber-900: #78350f;
+  --color-amber-950: #451a03;
+
+  --color-rose-200: #fecdd3;
+  --color-rose-300: #fda4af;
+  --color-rose-500: #f43f5e;
+  --color-rose-900: #881337;
+  --color-rose-950: #4c0519;
+
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-900: #7f1d1d;
+  --color-red-950: #450a0a;
+
+  --color-sky-200: #bae6fd;
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8;
+  --color-sky-500: #0ea5e9;
+  --color-sky-950: #082f49;
+
+  --color-purple-200: #e9d5ff;
+  --color-purple-300: #d8b4fe;
+  --color-purple-500: #a855f7;
+  --color-purple-950: #3b0764;
+}
+
+html.light {
+  --color-slate-50: #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-600: #94a3b8;
+  --color-slate-700: #c5d0dc;
+  --color-slate-800: #ffffff;
+  --color-slate-900: #eef4fa;
+  --color-slate-950: #ffffff;
+
+  --color-emerald-50: #022c22;
+  --color-emerald-100: #064e3b;
+  --color-emerald-200: #065f46;
+  --color-emerald-300: #047857;
+  --color-emerald-900: #a7f3d0;
+  --color-emerald-950: #d1fae5;
+
+  --color-amber-200: #92400e;
+  --color-amber-300: #b45309;
+  --color-amber-900: #fde68a;
+  --color-amber-950: #fef3c7;
+
+  --color-rose-200: #9f1239;
+  --color-rose-300: #be123c;
+  --color-rose-900: #fecdd3;
+  --color-rose-950: #ffe4e6;
+
+  --color-red-200: #9f1239;
+  --color-red-300: #be123c;
+  --color-red-900: #fecaca;
+  --color-red-950: #fee2e2;
+
+  --color-sky-200: #075985;
+  --color-sky-300: #0369a1;
+  --color-sky-950: #e0f2fe;
+
+  --color-purple-200: #6b21a8;
+  --color-purple-300: #7e22ce;
+  --color-purple-950: #f3e8ff;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-slate-900);
+  color: var(--color-slate-100);
+  -webkit-font-smoothing: antialiased;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-slate-400);
+  opacity: 1;
+}
+
+input,
+select,
+textarea {
+  color: var(--color-slate-100);
+}
+
+html.light .shadow-xl,
+html.light .shadow-lg {
+  --tw-shadow-color: rgb(15 23 42 / 0.12);
+}
+
+button.bg-emerald-500,
+button.bg-amber-500,
+button.bg-red-600,
+button.bg-red-600\/80 {
+  box-shadow: 0 4px 14px color-mix(in srgb, currentColor 0%, transparent);
+}
+
+button.bg-emerald-500 {
+  box-shadow: 0 4px 16px rgb(17 212 137 / 0.35);
+}
+
+button.bg-amber-500 {
+  box-shadow: 0 4px 16px rgb(245 180 0 / 0.35);
+}
+
+button.bg-emerald-500,
+button.bg-amber-500,
+button.bg-red-600,
+button.bg-red-600\/80 {
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+}
+
+button.bg-emerald-500:active,
+button.bg-amber-500:active,
+button.bg-red-600:active,
+button.bg-red-600\/80:active {
+  transform: scale(0.98);
+}
+
+@keyframes save-pop {
+  0% {
+    transform: translateY(16px) scale(0.92);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0) scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes check-burst {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 28;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.save-toast {
+  animation: save-pop 0.45s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+
+.save-toast-check {
+  animation: check-burst 0.4s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+
+.save-toast-check path {
+  stroke-dasharray: 28;
+  stroke-dashoffset: 28;
+  animation: check-draw 0.35s 0.12s ease-out forwards;
+}

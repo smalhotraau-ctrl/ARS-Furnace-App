@@ -124,7 +124,7 @@ export function BatchPlanPage() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950"
+          className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent"
         >
           {t('New Batch Plan', 'नई बैच योजना')}
         </button>

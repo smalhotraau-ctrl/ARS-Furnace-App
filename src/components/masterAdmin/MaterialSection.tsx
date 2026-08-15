@@ -90,7 +90,7 @@ export function MaterialSection({ materials, canPropose, autoApproved, onCreate,
               type="button"
               disabled={!canSubmit || submitting}
               onClick={() => void submit()}
-              className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
             >
               {t('Submit', 'भेजें')}
             </button>
@@ -112,7 +112,7 @@ export function MaterialSection({ materials, canPropose, autoApproved, onCreate,
                   type="button"
                   onClick={() => void onUpdate(m.id, { name: editName.trim() }).then(() => setEditingId(null))}
                   disabled={!editName.trim()}
-                  className="min-h-10 rounded-lg bg-emerald-500 px-3 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                  className="min-h-10 rounded-lg bg-emerald-500 px-3 text-sm font-semibold text-on-accent disabled:opacity-50"
                 >
                   {t('Save', 'सहेजें')}
                 </button>

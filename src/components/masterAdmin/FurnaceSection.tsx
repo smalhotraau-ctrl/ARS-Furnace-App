@@ -123,7 +123,7 @@ export function FurnaceSection({ furnaces, canPropose, autoApproved, onCreate, o
               type="button"
               disabled={!canSubmit || submitting}
               onClick={() => void submit()}
-              className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
             >
               {t('Submit', 'भेजें')}
             </button>

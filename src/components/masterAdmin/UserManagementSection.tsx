@@ -79,7 +79,7 @@ export function UserManagementSection({
           <button
             type="button"
             onClick={onDismissPin}
-            className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950"
+            className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent"
           >
             {t("I've written it down", 'मैंने लिख लिया है')}
           </button>
@@ -116,7 +116,7 @@ export function UserManagementSection({
             type="button"
             disabled={!username.trim() || submitting}
             onClick={() => void submitCreate()}
-            className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+            className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
           >
             {t('Submit for Owner approval', 'मालिक की स्वीकृति के लिए भेजें')}
           </button>
@@ -154,7 +154,7 @@ export function UserManagementSection({
                     <button
                       type="button"
                       onClick={() => void onDecide(req, true, noteByRequest[req.id] ?? null)}
-                      className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950"
+                      className="flex-1 min-h-12 rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent"
                     >
                       {t('Approve', 'स्वीकृत')}
                     </button>

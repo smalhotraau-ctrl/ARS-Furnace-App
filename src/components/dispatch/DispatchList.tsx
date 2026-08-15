@@ -162,7 +162,7 @@ function ShortageEditor({
               setSaving(false)
             }
           }}
-          className="min-h-11 flex-1 rounded-lg bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+          className="min-h-11 flex-1 rounded-lg bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
         >
           {t('Save', 'सहेजें')}
         </button>

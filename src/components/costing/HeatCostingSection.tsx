@@ -187,7 +187,7 @@ export function HeatCostingSection({
               type="button"
               disabled={computing}
               onClick={() => void handleCompute()}
-              className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
             >
               {computing ? t('Computing…', 'गणना हो रही है…') : t('Compute costing', 'कॉस्टिंग की गणना करें')}
             </button>
@@ -282,7 +282,7 @@ export function HeatCostingSection({
                 type="button"
                 disabled={savingInputs}
                 onClick={() => void handleSaveInputs()}
-                className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
               >
                 {t('Save & recompute cost/kg', 'सहेजें व लागत/किग्रा फिर से गणना करें')}
               </button>

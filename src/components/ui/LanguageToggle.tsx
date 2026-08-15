@@ -14,7 +14,7 @@ export function LanguageToggle() {
             onClick={() => setLanguage(code)}
             className={`min-h-9 min-w-11 rounded-lg px-3 text-sm font-semibold transition ${
               active
-                ? 'bg-emerald-500 text-slate-950'
+                ? 'bg-emerald-500 text-on-accent'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
             aria-pressed={active}

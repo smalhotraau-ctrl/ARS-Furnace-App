@@ -80,7 +80,7 @@ export function VerifyOutputPanel({ output, chargeLines, yieldStandards, showFla
         type="button"
         disabled={submitting}
         onClick={() => void handleVerify()}
-        className="min-h-14 w-full rounded-xl bg-purple-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+        className="min-h-14 w-full rounded-xl bg-purple-500 text-lg font-semibold text-on-accent disabled:opacity-50"
       >
         {t('Verify & Close', 'सत्यापित करें व बंद करें')}
       </button>

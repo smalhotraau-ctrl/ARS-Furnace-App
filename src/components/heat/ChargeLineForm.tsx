@@ -126,7 +126,7 @@ export function ChargeLineForm({ materials, disabled = false, onSubmit }: Charge
         type="button"
         disabled={disabled || submitting || netKg == null || netKg < 0 || !materialCode.trim()}
         onClick={() => void handleSave()}
-        className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+        className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
       >
         {t('Save Charge', 'चार्ज सहेजें')}
       </button>

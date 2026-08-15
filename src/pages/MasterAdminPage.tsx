@@ -242,12 +242,12 @@ export function MasterAdminPage() {
           >
             {t(item.en, item.hi)}
             {item.id === 'approvals' && pendingApprovalCount > 0 && (
-              <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
+              <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-on-accent">
                 {pendingApprovalCount}
               </span>
             )}
             {item.id === 'users' && pendingUserCount > 0 && (
-              <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
+              <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-on-accent">
                 {pendingUserCount}
               </span>
             )}

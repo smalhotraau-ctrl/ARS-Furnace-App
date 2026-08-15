@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { INACTIVE_LOGIN_MESSAGE, INVALID_LOGIN_MESSAGE, useAuth } from '../context/AuthContext'
 import { BilingualText } from '../components/ui/BilingualText'
 import { LanguageToggle } from '../components/ui/LanguageToggle'
+import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { useLanguage } from '../context/LanguageContext'
 
 function loginErrorCopy(message: string): { en: string; hi: string } {
@@ -47,7 +48,10 @@ export function LoginScreen() {
       <form onSubmit={(e) => void handleSubmit(e)} className="w-full max-w-md space-y-6 rounded-2xl border border-slate-700 bg-slate-800 p-6">
         <div className="flex items-start justify-between gap-3">
           <BilingualText as="h1" en="Furnace Sign In" hi="फर्नेस साइन इन" className="text-3xl font-bold text-slate-100" />
-          <LanguageToggle />
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <ThemeToggle />
+          </div>
         </div>
         <p className="text-sm text-slate-400">
           {t('Enter your username and 6-digit PIN.', 'अपना उपयोगकर्ता नाम और 6 अंकों का पिन दर्ज करें।')}
@@ -91,7 +95,7 @@ export function LoginScreen() {
         <button
           type="submit"
           disabled={!canSubmit || submitting}
-          className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-slate-950 disabled:opacity-50"
+          className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
         >
           {submitting ? t('Signing in…', 'साइन इन हो रहा है…') : t('Sign In', 'साइन इन')}
         </button>

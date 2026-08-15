@@ -38,7 +38,7 @@ export function PlanVariancePanel({ variance }: PlanVariancePanelProps) {
             >
               <div className="flex items-center gap-2">
                 <span className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
-                  inSpec ? 'bg-emerald-500 text-slate-950' : 'bg-red-500 text-white'
+                  inSpec ? 'bg-emerald-500 text-on-accent' : 'bg-red-500 text-white'
                 }`}>
                   {inSpec ? '✓' : '✕'}
                 </span>
