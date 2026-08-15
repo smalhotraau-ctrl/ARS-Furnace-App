@@ -22,7 +22,7 @@ export function ApprovalSettingsSection({ settings, onToggle }: ApprovalSettings
           'हीट रद्दीकरण व हीट नंबर सुधार स्थायी रूप से निश्चित हैं और यहाँ बदले नहीं जा सकते।',
         )}
       </p>
-      <ul className="space-y-3">
+      <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
         {settings.map((s) => (
           <li key={s.id} className="flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-800/60 px-4 py-4">
             <div>

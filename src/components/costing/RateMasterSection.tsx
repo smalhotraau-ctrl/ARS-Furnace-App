@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { BilingualText } from '../ui/BilingualText'
+import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import type { Material } from '../../types/masterAdmin'
 import type { RateMasterCreatePayload, RateMasterRow } from '../../types/costing'
 
@@ -173,7 +174,7 @@ export function RateMasterSection({ rows, materials, canPropose, autoApproved, o
                 )}
               </p>
 
-              <label className="block space-y-1">
+              <label className="block max-w-xs space-y-1">
                 <span className="text-sm font-semibold text-slate-300">{t('Effective from', 'प्रभावी तिथि')}</span>
                 <input
                   type="date"
@@ -270,34 +271,36 @@ export function RateMasterSection({ rows, materials, canPropose, autoApproved, o
                   'फ्लैट रेट आइटम (इलेक्ट्रिसिटी, लेबर, ओवरहेड, परिवहन) में कोई मात्रा नहीं होती — केवल एक रेट।',
                 )}
               </p>
-              <label className="block space-y-1">
-                <span className="text-sm font-semibold text-slate-300">{t('Item name *', 'आइटम नाम *')}</span>
-                <input
-                  value={flatItem}
-                  onChange={(e) => setFlatItem(e.target.value)}
-                  placeholder="e.g. electricity, labour, overhead, transport"
-                  className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-semibold text-slate-300">{t('Rate (₹/kg) *', 'रेट (₹/किग्रा) *')}</span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={flatRatePerKg}
-                  onChange={(e) => setFlatRatePerKg(e.target.value)}
-                  className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-semibold text-slate-300">{t('Effective from', 'प्रभावी तिथि')}</span>
-                <input
-                  type="date"
-                  value={flatEffectiveFrom}
-                  onChange={(e) => setFlatEffectiveFrom(e.target.value)}
-                  className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
-                />
-              </label>
+              <div className="space-y-3 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
+                <label className="block space-y-1">
+                  <span className="text-sm font-semibold text-slate-300">{t('Item name *', 'आइटम नाम *')}</span>
+                  <input
+                    value={flatItem}
+                    onChange={(e) => setFlatItem(e.target.value)}
+                    placeholder="e.g. electricity, labour, overhead, transport"
+                    className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-sm font-semibold text-slate-300">{t('Rate (₹/kg) *', 'रेट (₹/किग्रा) *')}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={flatRatePerKg}
+                    onChange={(e) => setFlatRatePerKg(e.target.value)}
+                    className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-sm font-semibold text-slate-300">{t('Effective from', 'प्रभावी तिथि')}</span>
+                  <input
+                    type="date"
+                    value={flatEffectiveFrom}
+                    onChange={(e) => setFlatEffectiveFrom(e.target.value)}
+                    className="w-full min-h-11 rounded-xl border border-slate-600 bg-slate-800 px-4"
+                  />
+                </label>
+              </div>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -320,41 +323,77 @@ export function RateMasterSection({ rows, materials, canPropose, autoApproved, o
         </div>
       )}
 
-      <div className="space-y-2">
-        <BilingualText as="h3" en="Lot materials" hi="लॉट मैटेरियल" className="text-sm font-semibold text-slate-300" />
-        <ul className="space-y-2">
-          {lots.map((r) => (
-            <li key={r.id} className="rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-100">{r.item}</p>
-                <p className="text-sm text-slate-400">{t('From', 'से')} {r.effective_from}</p>
-              </div>
-              <p className="text-sm text-slate-300">
-                ₹{r.rate_per_kg}/kg · {t('remaining', 'शेष')} {r.remaining_qty_kg?.toFixed(1)} / {r.quantity_kg?.toFixed(1)} kg
-              </p>
-              {(r.remaining_qty_kg ?? 0) <= 0 && (
-                <p className="text-xs font-semibold text-red-400">{t('Fully consumed', 'पूरी तरह उपयोग हो गया')}</p>
-              )}
-            </li>
-          ))}
+      <div className="space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
+        <div className="space-y-2">
+          <BilingualText as="h3" en="Lot materials" hi="लॉट मैटेरियल" className="text-sm font-semibold text-slate-300" />
           {lots.length === 0 && <p className="text-sm text-slate-400">{t('No lot materials yet', 'अभी कोई लॉट मैटेरियल नहीं')}</p>}
-        </ul>
-      </div>
+          <ul className="space-y-2 lg:hidden">
+            {lots.map((r) => (
+              <li key={r.id} className="rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-slate-100">{r.item}</p>
+                  <p className="text-sm text-slate-400">{t('From', 'से')} {r.effective_from}</p>
+                </div>
+                <p className="text-sm text-slate-300">
+                  ₹{r.rate_per_kg}/kg · {t('remaining', 'शेष')} {r.remaining_qty_kg?.toFixed(1)} / {r.quantity_kg?.toFixed(1)} kg
+                </p>
+                {(r.remaining_qty_kg ?? 0) <= 0 && (
+                  <p className="text-xs font-semibold text-red-400">{t('Fully consumed', 'पूरी तरह उपयोग हो गया')}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+          {lots.length > 0 && (
+            <DesktopTable
+              columns={[
+                t('Material', 'मैटेरियल'),
+                t('₹/kg', '₹/किग्रा'),
+                t('Remaining', 'शेष'),
+                t('From', 'से'),
+              ]}
+            >
+              {lots.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-800/40">
+                  <DeskTd className="font-semibold text-slate-100">{r.item}</DeskTd>
+                  <DeskTd>₹{r.rate_per_kg}</DeskTd>
+                  <DeskTd className={(r.remaining_qty_kg ?? 0) <= 0 ? 'text-red-400' : undefined}>
+                    {r.remaining_qty_kg?.toFixed(1)} / {r.quantity_kg?.toFixed(1)} kg
+                  </DeskTd>
+                  <DeskTd className="text-slate-400">{r.effective_from}</DeskTd>
+                </tr>
+              ))}
+            </DesktopTable>
+          )}
+        </div>
 
-      <div className="space-y-2">
-        <BilingualText as="h3" en="Flat-rate items" hi="फ्लैट रेट आइटम" className="text-sm font-semibold text-slate-300" />
-        <ul className="space-y-2">
-          {flatRates.map((r) => (
-            <li key={r.id} className="rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <p className="font-semibold text-slate-100">{r.item}</p>
-                <p className="text-sm text-slate-400">{t('From', 'से')} {r.effective_from}</p>
-              </div>
-              <p className="text-sm text-slate-300">₹{r.rate_per_kg}/kg</p>
-            </li>
-          ))}
+        <div className="space-y-2">
+          <BilingualText as="h3" en="Flat-rate items" hi="फ्लैट रेट आइटम" className="text-sm font-semibold text-slate-300" />
           {flatRates.length === 0 && <p className="text-sm text-slate-400">{t('No flat-rate items yet', 'अभी कोई फ्लैट रेट आइटम नहीं')}</p>}
-        </ul>
+          <ul className="space-y-2 lg:hidden">
+            {flatRates.map((r) => (
+              <li key={r.id} className="rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-slate-100">{r.item}</p>
+                  <p className="text-sm text-slate-400">{t('From', 'से')} {r.effective_from}</p>
+                </div>
+                <p className="text-sm text-slate-300">₹{r.rate_per_kg}/kg</p>
+              </li>
+            ))}
+          </ul>
+          {flatRates.length > 0 && (
+            <DesktopTable
+              columns={[t('Item', 'आइटम'), t('₹/kg', '₹/किग्रा'), t('From', 'से')]}
+            >
+              {flatRates.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-800/40">
+                  <DeskTd className="font-semibold text-slate-100">{r.item}</DeskTd>
+                  <DeskTd>₹{r.rate_per_kg}</DeskTd>
+                  <DeskTd className="text-slate-400">{r.effective_from}</DeskTd>
+                </tr>
+              ))}
+            </DesktopTable>
+          )}
+        </div>
       </div>
     </section>
   )

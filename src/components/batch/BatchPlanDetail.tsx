@@ -1,6 +1,7 @@
 import type { BatchPlan } from '../../types/batchPlan'
 import { ExpectedCompositionPanel } from './ExpectedCompositionPanel'
 import { BilingualText } from '../ui/BilingualText'
+import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { useLanguage } from '../../context/LanguageContext'
 
 interface BatchPlanDetailProps {
@@ -47,7 +48,7 @@ export function BatchPlanDetail({ plan }: BatchPlanDetailProps) {
           hi="योजना बनाई सामग्री"
           className="mb-3 text-base font-semibold"
         />
-        <ul className="space-y-2">
+        <ul className="space-y-2 lg:hidden">
           {plan.planned_lines.map((line, index) => (
             <li
               key={`${line.material_code}-${index}`}
@@ -58,6 +59,14 @@ export function BatchPlanDetail({ plan }: BatchPlanDetailProps) {
             </li>
           ))}
         </ul>
+        <DesktopTable columns={[t('Material', 'सामग्री'), t('kg', 'किग्रा')]}>
+          {plan.planned_lines.map((line, index) => (
+            <tr key={`${line.material_code}-${index}`} className="hover:bg-slate-800/40">
+              <DeskTd className="font-medium">{line.material_code}</DeskTd>
+              <DeskTd>{line.planned_kg}</DeskTd>
+            </tr>
+          ))}
+        </DesktopTable>
       </div>
 
       <ExpectedCompositionPanel composition={plan.expected_composition} />

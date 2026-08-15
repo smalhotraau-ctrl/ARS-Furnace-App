@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { GradeSpecCreatePayload, GradeSpecElementInput, GradeSpecRow } from '../../types/masterAdmin'
 import { BilingualText } from '../ui/BilingualText'
+import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
@@ -109,53 +110,55 @@ export function GradeSpecSection({ gradeSpecs, canPropose, autoApproved, onCreat
 
       {adding && (
         <div className="space-y-3 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
-          <label className="block space-y-2">
-            <BilingualText as="span" en="New grade code *" hi="नया ग्रेड कोड *" className="font-semibold" />
-            <input
-              value={gradeCode}
-              onChange={(e) => setGradeCode(e.target.value)}
-              placeholder="e.g. BG-14"
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4 uppercase"
-            />
-          </label>
-          <label className="block space-y-2">
-            <BilingualText
-              as="span"
-              en="Supersedes existing grade (optional)"
-              hi="मौजूदा ग्रेड बदलें (वैकल्पिक)"
-              className="font-semibold"
-            />
-            <select
-              value={supersedes}
-              onChange={(e) => setSupersedes(e.target.value)}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            >
-              <option value="">{t('None — brand new grade', 'कोई नहीं — नया ग्रेड')}</option>
-              {activeGradeCodes.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
+            <label className="block space-y-2">
+              <BilingualText as="span" en="New grade code *" hi="नया ग्रेड कोड *" className="font-semibold" />
+              <input
+                value={gradeCode}
+                onChange={(e) => setGradeCode(e.target.value)}
+                placeholder="e.g. BG-14"
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4 uppercase"
+              />
+            </label>
+            <label className="block space-y-2">
+              <BilingualText
+                as="span"
+                en="Supersedes existing grade (optional)"
+                hi="मौजूदा ग्रेड बदलें (वैकल्पिक)"
+                className="font-semibold"
+              />
+              <select
+                value={supersedes}
+                onChange={(e) => setSupersedes(e.target.value)}
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+              >
+                <option value="">{t('None — brand new grade', 'कोई नहीं — नया ग्रेड')}</option>
+                {activeGradeCodes.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-          <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/40 p-3">
-            <BilingualText as="span" en="Element" hi="तत्व" className="text-sm font-semibold text-slate-300" />
-            <input
-              value={element}
-              onChange={(e) => setElement(e.target.value)}
-              placeholder="e.g. Si"
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <NumericField id="min-pct" labelEn="Min %" labelHi="न्यूनतम %" value={minPct} onChange={setMinPct} />
-              <NumericField id="max-pct" labelEn="Max %" labelHi="अधिकतम %" value={maxPct} onChange={setMaxPct} />
-            </div>
+          <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/40 p-3 lg:grid lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end lg:gap-3 lg:space-y-0">
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Element" hi="तत्व" className="text-sm font-semibold text-slate-300" />
+              <input
+                value={element}
+                onChange={(e) => setElement(e.target.value)}
+                placeholder="e.g. Si"
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+              />
+            </label>
+            <NumericField id="min-pct" labelEn="Min %" labelHi="न्यूनतम %" value={minPct} onChange={setMinPct} />
+            <NumericField id="max-pct" labelEn="Max %" labelHi="अधिकतम %" value={maxPct} onChange={setMaxPct} />
             <button
               type="button"
               onClick={addElement}
               disabled={!element.trim() || parseNumericField(minPct) == null || parseNumericField(maxPct) == null}
-              className="min-h-10 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-sm font-semibold text-emerald-300 disabled:opacity-50"
+              className="min-h-10 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 text-sm font-semibold text-emerald-300 disabled:opacity-50 lg:min-h-12"
             >
               {t('Add element', 'तत्व जोड़ें')}
             </button>
@@ -199,7 +202,11 @@ export function GradeSpecSection({ gradeSpecs, canPropose, autoApproved, onCreat
         </div>
       )}
 
-      <ul className="space-y-3">
+      {byGrade.length === 0 && (
+        <p className="text-sm text-slate-400">{t('No grade specs yet', 'अभी कोई ग्रेड स्पेक नहीं')}</p>
+      )}
+
+      <ul className="space-y-3 lg:hidden">
         {byGrade.map(([code, rows]) => {
           const isActive = rows.some((r) => r.active)
           const supersededByCode = gradeCodeForId(rows[0]?.superseded_by ?? null)
@@ -232,10 +239,38 @@ export function GradeSpecSection({ gradeSpecs, canPropose, autoApproved, onCreat
             </li>
           )
         })}
-        {byGrade.length === 0 && (
-          <p className="text-sm text-slate-400">{t('No grade specs yet', 'अभी कोई ग्रेड स्पेक नहीं')}</p>
-        )}
       </ul>
+
+      {byGrade.length > 0 && (
+        <DesktopTable
+          columns={[
+            t('Grade', 'ग्रेड'),
+            t('Element', 'तत्व'),
+            t('Min %', 'न्यूनतम %'),
+            t('Max %', 'अधिकतम %'),
+            t('Status', 'स्थिति'),
+          ]}
+        >
+          {byGrade.flatMap(([code, rows]) => {
+            const isActive = rows.some((r) => r.active)
+            const supersededByCode = gradeCodeForId(rows[0]?.superseded_by ?? null)
+            const status = isActive
+              ? t('Active', 'सक्रिय')
+              : supersededByCode
+                ? t(`Replaced by ${supersededByCode}`, `${supersededByCode} द्वारा बदला गया`)
+                : t('Superseded', 'बदला गया')
+            return rows.map((r, i) => (
+              <tr key={r.id} className={isActive ? 'hover:bg-slate-800/40' : 'opacity-70 hover:bg-slate-800/40'}>
+                <DeskTd className="font-semibold text-slate-100">{i === 0 ? code : ''}</DeskTd>
+                <DeskTd>{r.element}</DeskTd>
+                <DeskTd>{r.min_pct}</DeskTd>
+                <DeskTd>{r.max_pct}</DeskTd>
+                <DeskTd className={isActive ? 'text-emerald-400' : 'text-red-400'}>{i === 0 ? status : ''}</DeskTd>
+              </tr>
+            ))
+          })}
+        </DesktopTable>
+      )}
     </section>
   )
 }

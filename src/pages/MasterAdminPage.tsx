@@ -189,7 +189,7 @@ export function MasterAdminPage() {
 
   if (!hasAccess) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-6">
+      <div className="mx-auto max-w-3xl px-4 py-6 lg:max-w-6xl">
         <p className="rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
           {t('You do not have access to Master Admin.', 'आपके पास मास्टर एडमिन तक पहुंच नहीं है।')}
         </p>
@@ -211,7 +211,7 @@ export function MasterAdminPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 lg:max-w-6xl">
       <header className="space-y-2">
         <BilingualText as="h1" en="Master Admin" hi="मास्टर एडमिन" className="text-3xl font-bold text-slate-100" />
         <p className="text-sm text-slate-400">

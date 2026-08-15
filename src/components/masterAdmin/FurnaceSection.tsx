@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Furnace, FurnaceCreatePayload, FurnaceUpdatePayload } from '../../types/masterAdmin'
 import { BilingualText } from '../ui/BilingualText'
+import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { useLanguage } from '../../context/LanguageContext'
 
 interface FurnaceSectionProps {
@@ -68,49 +69,51 @@ export function FurnaceSection({ furnaces, canPropose, autoApproved, onCreate, o
 
       {adding && (
         <div className="space-y-3 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Code *" hi="कोड *" className="font-semibold" />
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="e.g. SF-02"
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4 uppercase"
-            />
-          </label>
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Name *" hi="नाम *" className="font-semibold" />
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            />
-          </label>
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Type *" hi="प्रकार *" className="font-semibold" />
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as 'main' | 'pit')}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            >
-              <option value="main">{t('Main', 'मुख्य')}</option>
-              <option value="pit">{t('Pit', 'पिट')}</option>
-            </select>
-          </label>
-          {type === 'main' && (
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
             <label className="block space-y-2">
-              <BilingualText as="span" en="Heat code letter *" hi="हीट कोड अक्षर *" className="font-semibold" />
+              <BilingualText as="span" en="Code *" hi="कोड *" className="font-semibold" />
               <input
-                value={heatCodeLetter}
-                maxLength={1}
-                onChange={(e) => setHeatCodeLetter(e.target.value.replace(/[^a-zA-Z]/g, ''))}
-                placeholder="A"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="e.g. SF-02"
                 className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4 uppercase"
               />
-              <p className="text-xs text-slate-400">
-                {t('Used to build this furnace’s heat numbers.', 'इस फर्नेस के हीट नंबर बनाने में उपयोग होता है।')}
-              </p>
             </label>
-          )}
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Name *" hi="नाम *" className="font-semibold" />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+              />
+            </label>
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Type *" hi="प्रकार *" className="font-semibold" />
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as 'main' | 'pit')}
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+              >
+                <option value="main">{t('Main', 'मुख्य')}</option>
+                <option value="pit">{t('Pit', 'पिट')}</option>
+              </select>
+            </label>
+            {type === 'main' && (
+              <label className="block space-y-2">
+                <BilingualText as="span" en="Heat code letter *" hi="हीट कोड अक्षर *" className="font-semibold" />
+                <input
+                  value={heatCodeLetter}
+                  maxLength={1}
+                  onChange={(e) => setHeatCodeLetter(e.target.value.replace(/[^a-zA-Z]/g, ''))}
+                  placeholder="A"
+                  className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4 uppercase"
+                />
+                <p className="text-xs text-slate-400">
+                  {t('Used to build this furnace’s heat numbers.', 'इस फर्नेस के हीट नंबर बनाने में उपयोग होता है।')}
+                </p>
+              </label>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               type="button"
@@ -131,7 +134,9 @@ export function FurnaceSection({ furnaces, canPropose, autoApproved, onCreate, o
         </div>
       )}
 
-      <ul className="space-y-2">
+      {furnaces.length === 0 && <p className="text-sm text-slate-400">{t('No furnaces yet', 'अभी कोई फर्नेस नहीं')}</p>}
+
+      <ul className="space-y-2 lg:hidden">
         {furnaces.map((f) => (
           <li
             key={f.id}
@@ -165,8 +170,49 @@ export function FurnaceSection({ furnaces, canPropose, autoApproved, onCreate, o
             )}
           </li>
         ))}
-        {furnaces.length === 0 && <p className="text-sm text-slate-400">{t('No furnaces yet', 'अभी कोई फर्नेस नहीं')}</p>}
       </ul>
+
+      {furnaces.length > 0 && (
+        <DesktopTable
+          columns={[
+            t('Code', 'कोड'),
+            t('Name', 'नाम'),
+            t('Type', 'प्रकार'),
+            t('Letter', 'अक्षर'),
+            t('Status', 'स्थिति'),
+            ...(canPropose ? [t('Actions', 'कार्रवाई')] : []),
+          ]}
+        >
+          {furnaces.map((f) => (
+            <tr key={f.id} className="hover:bg-slate-800/40">
+              <DeskTd className="font-semibold text-slate-100">{f.code}</DeskTd>
+              <DeskTd>{f.name}</DeskTd>
+              <DeskTd>{t(f.type === 'main' ? 'Main' : 'Pit', f.type === 'main' ? 'मुख्य' : 'पिट')}</DeskTd>
+              <DeskTd>{f.heat_code_letter ?? '—'}</DeskTd>
+              <DeskTd>
+                {f.active ? (
+                  <span className="text-emerald-400">{t('Active', 'सक्रिय')}</span>
+                ) : (
+                  <span className="text-red-400">{t('Deactivated', 'निष्क्रिय')}</span>
+                )}
+              </DeskTd>
+              {canPropose && (
+                <DeskTd>
+                  <button
+                    type="button"
+                    onClick={() => void onUpdate(f.id, { active: !f.active })}
+                    className={`min-h-10 rounded-lg px-3 text-sm font-semibold ${
+                      f.active ? 'text-red-300 hover:bg-red-950/40' : 'text-emerald-300 hover:bg-emerald-950/40'
+                    }`}
+                  >
+                    {f.active ? t('Deactivate', 'निष्क्रिय करें') : t('Reactivate', 'पुनः सक्रिय करें')}
+                  </button>
+                </DeskTd>
+              )}
+            </tr>
+          ))}
+        </DesktopTable>
+      )}
     </section>
   )
 }

@@ -7,6 +7,7 @@ import type {
   MaterialStdCompositionUpdatePayload,
 } from '../../types/masterAdmin'
 import { BilingualText } from '../ui/BilingualText'
+import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
@@ -121,20 +122,22 @@ export function MaterialStdCompositionSection({
             </select>
           </label>
 
-          <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/40 p-3">
-            <BilingualText as="span" en="Element" hi="तत्व" className="text-sm font-semibold text-slate-300" />
-            <input
-              value={element}
-              onChange={(e) => setElement(e.target.value)}
-              placeholder="e.g. Fe"
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            />
+          <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-800/40 p-3 lg:grid lg:grid-cols-[1fr_1fr_auto] lg:items-end lg:gap-3 lg:space-y-0">
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Element" hi="तत्व" className="text-sm font-semibold text-slate-300" />
+              <input
+                value={element}
+                onChange={(e) => setElement(e.target.value)}
+                placeholder="e.g. Fe"
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+              />
+            </label>
             <NumericField id="std-pct" labelEn="Std %" labelHi="स्टैंडर्ड %" value={stdPct} onChange={setStdPct} />
             <button
               type="button"
               onClick={addElement}
               disabled={!element.trim() || parseNumericField(stdPct) == null}
-              className="min-h-10 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-sm font-semibold text-emerald-300 disabled:opacity-50"
+              className="min-h-10 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 text-sm font-semibold text-emerald-300 disabled:opacity-50 lg:min-h-12"
             >
               {t('Add element', 'तत्व जोड़ें')}
             </button>
@@ -178,7 +181,11 @@ export function MaterialStdCompositionSection({
         </div>
       )}
 
-      <ul className="space-y-3">
+      {byMaterial.length === 0 && (
+        <p className="text-sm text-slate-400">{t('No composition data yet', 'अभी कोई संरचना डेटा नहीं')}</p>
+      )}
+
+      <ul className="space-y-3 lg:hidden">
         {byMaterial.map(([code, materialRows]) => (
           <li key={code} className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <p className="mb-2 font-semibold text-slate-100">{code}</p>
@@ -230,10 +237,73 @@ export function MaterialStdCompositionSection({
             </ul>
           </li>
         ))}
-        {byMaterial.length === 0 && (
-          <p className="text-sm text-slate-400">{t('No composition data yet', 'अभी कोई संरचना डेटा नहीं')}</p>
-        )}
       </ul>
+
+      {byMaterial.length > 0 && (
+        <DesktopTable
+          columns={[
+            t('Material', 'मैटेरियल'),
+            t('Element', 'तत्व'),
+            t('Std %', 'स्टैंडर्ड %'),
+            ...(canPropose ? [t('Actions', 'कार्रवाई')] : []),
+          ]}
+        >
+          {byMaterial.flatMap(([code, materialRows]) =>
+            materialRows.map((r, i) => (
+              <tr key={r.id} className="hover:bg-slate-800/40">
+                <DeskTd className="font-semibold text-slate-100">{i === 0 ? code : ''}</DeskTd>
+                <DeskTd>{r.element}</DeskTd>
+                <DeskTd>
+                  {editingId === r.id ? (
+                    <input
+                      value={editStdPct}
+                      onChange={(e) => setEditStdPct(e.target.value.replace(/[^\d.]/g, ''))}
+                      className="w-24 min-h-10 rounded-lg border border-slate-600 bg-slate-900 px-2"
+                    />
+                  ) : (
+                    `${r.std_pct}%`
+                  )}
+                </DeskTd>
+                {canPropose && (
+                  <DeskTd>
+                    {editingId === r.id ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void onUpdate(r.id, { std_pct: Number(editStdPct) }).then(() => setEditingId(null))
+                          }
+                          className="min-h-10 rounded-lg bg-emerald-500 px-3 text-sm font-semibold text-on-accent"
+                        >
+                          {t('Save', 'सहेजें')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          className="min-h-10 text-sm text-slate-400"
+                        >
+                          {t('Cancel', 'रद्द करें')}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(r.id)
+                          setEditStdPct(String(r.std_pct))
+                        }}
+                        className="min-h-10 text-sm font-semibold text-slate-400 hover:text-slate-200"
+                      >
+                        {t('Edit', 'संपादित करें')}
+                      </button>
+                    )}
+                  </DeskTd>
+                )}
+              </tr>
+            )),
+          )}
+        </DesktopTable>
+      )}
     </section>
   )
 }

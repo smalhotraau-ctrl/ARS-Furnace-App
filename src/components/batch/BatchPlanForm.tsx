@@ -94,53 +94,55 @@ export function BatchPlanForm({
 
       {step === 0 && (
         <div className="space-y-4">
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Furnace *" hi="फर्नेस" className="font-semibold" />
-            <select
-              value={furnaceCode}
-              disabled={disabled}
-              onChange={(e) => setFurnaceCode(e.target.value)}
-              className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
-            >
-              <option value="">{t('Select furnace', 'फर्नेस चुनें')}</option>
-              {furnaces.map((f) => (
-                <option key={f.code} value={f.code}>
-                  {f.code} — {f.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Grade *" hi="ग्रेड" className="font-semibold" />
-            <select
-              value={gradeCode}
-              disabled={disabled}
-              onChange={(e) => setGradeCode(e.target.value)}
-              className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
-            >
-              <option value="">{t('Select grade', 'ग्रेड चुनें')}</option>
-              {gradeCodes.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Plan date *" hi="योजना तारीख" className="font-semibold" />
-            <input
-              type="date"
-              value={planDate}
-              disabled={disabled}
-              onChange={(e) => setPlanDate(e.target.value)}
-              className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
-            />
-          </label>
+          <div className="space-y-4 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0">
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Furnace *" hi="फर्नेस" className="font-semibold" />
+              <select
+                value={furnaceCode}
+                disabled={disabled}
+                onChange={(e) => setFurnaceCode(e.target.value)}
+                className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
+              >
+                <option value="">{t('Select furnace', 'फर्नेस चुनें')}</option>
+                {furnaces.map((f) => (
+                  <option key={f.code} value={f.code}>
+                    {f.code} — {f.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Grade *" hi="ग्रेड" className="font-semibold" />
+              <select
+                value={gradeCode}
+                disabled={disabled}
+                onChange={(e) => setGradeCode(e.target.value)}
+                className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
+              >
+                <option value="">{t('Select grade', 'ग्रेड चुनें')}</option>
+                {gradeCodes.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Plan date *" hi="योजना तारीख" className="font-semibold" />
+              <input
+                type="date"
+                value={planDate}
+                disabled={disabled}
+                onChange={(e) => setPlanDate(e.target.value)}
+                className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
+              />
+            </label>
+          </div>
           <button
             type="button"
             disabled={disabled || !stepOneValid}
             onClick={() => setStep(1)}
-            className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50"
+            className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent disabled:opacity-50 lg:w-auto lg:px-8"
           >
             {t('Next', 'आगे')}
           </button>
@@ -149,13 +151,15 @@ export function BatchPlanForm({
 
       {step === 1 && (
         <div className="space-y-5">
-          <PlannedLinesEditor
-            lines={plannedLines}
-            materials={materials}
-            disabled={disabled}
-            onChange={setPlannedLines}
-          />
-          <ExpectedCompositionPanel composition={expectedComposition} />
+          <div className="space-y-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
+            <PlannedLinesEditor
+              lines={plannedLines}
+              materials={materials}
+              disabled={disabled}
+              onChange={setPlannedLines}
+            />
+            <ExpectedCompositionPanel composition={expectedComposition} />
+          </div>
           <div className="flex gap-3">
             <button
               type="button"

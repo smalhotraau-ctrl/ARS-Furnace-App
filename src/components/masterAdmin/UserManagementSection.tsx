@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLanguage } from '../../context/LanguageContext'
 import { BilingualText } from '../ui/BilingualText'
+import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { ROLE_LABELS, type UserRole } from '../../types/auth'
 import type { ManagedUser, UserChangeRequest } from '../../types/userManagement'
 
@@ -89,37 +90,39 @@ export function UserManagementSection({
       {canPropose && (
         <div className="space-y-3 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
           <BilingualText as="h3" en="Propose new login" hi="नया लॉगिन प्रस्तावित करें" className="font-semibold text-slate-100" />
-          <label className="block space-y-1">
-            <span className="text-sm font-semibold text-slate-300">{t('Username *', 'उपयोगकर्ता नाम *')}</span>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="off"
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4 lowercase"
-            />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-sm font-semibold text-slate-300">{t('Role *', 'भूमिका *')}</span>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+          <div className="space-y-3 lg:grid lg:grid-cols-[1fr_1fr_auto] lg:items-end lg:gap-3 lg:space-y-0">
+            <label className="block space-y-1">
+              <span className="text-sm font-semibold text-slate-300">{t('Username *', 'उपयोगकर्ता नाम *')}</span>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="off"
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4 lowercase"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-sm font-semibold text-slate-300">{t('Role *', 'भूमिका *')}</span>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value as UserRole)}
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+              >
+                {ASSIGNABLE_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {t(ROLE_LABELS[r].en, ROLE_LABELS[r].hi)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={!username.trim() || submitting}
+              onClick={() => void submitCreate()}
+              className="min-h-12 w-full rounded-xl bg-emerald-500 px-4 text-sm font-semibold text-on-accent disabled:opacity-50 lg:w-auto"
             >
-              {ASSIGNABLE_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {t(ROLE_LABELS[r].en, ROLE_LABELS[r].hi)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            disabled={!username.trim() || submitting}
-            onClick={() => void submitCreate()}
-            className="min-h-12 w-full rounded-xl bg-emerald-500 text-sm font-semibold text-on-accent disabled:opacity-50"
-          >
-            {t('Submit for Owner approval', 'मालिक की स्वीकृति के लिए भेजें')}
-          </button>
+              {t('Submit for Owner approval', 'मालिक की स्वीकृति के लिए भेजें')}
+            </button>
+          </div>
         </div>
       )}
 
@@ -127,7 +130,8 @@ export function UserManagementSection({
         <div className="space-y-3">
           <BilingualText as="h3" en="Pending user requests" hi="लंबित यूज़र अनुरोध" className="font-semibold text-slate-100" />
           {pending.length === 0 && <p className="text-sm text-slate-400">{t('Nothing pending', 'कुछ भी लंबित नहीं')}</p>}
-          {pending.map((req) => (
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+            {pending.map((req) => (
             <div key={req.id} className="space-y-3 rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4">
               <p className="font-semibold text-slate-100">
                 {req.action === 'create' ? t('New login', 'नया लॉगिन') : t('Revoke login', 'लॉगिन रद्द करें')} ·{' '}
@@ -162,13 +166,14 @@ export function UserManagementSection({
                 </>
               )}
             </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
       <div className="space-y-2">
         <BilingualText as="h3" en="Existing logins" hi="मौजूदा लॉगिन" className="font-semibold text-slate-100" />
-        <ul className="space-y-2">
+        <ul className="space-y-2 lg:hidden">
           {users.map((u) => (
             <li key={u.id} className="flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3">
               <div>
@@ -194,14 +199,54 @@ export function UserManagementSection({
               )}
             </li>
           ))}
-          {users.length === 0 && <p className="text-sm text-slate-400">{t('No users yet', 'अभी कोई यूज़र नहीं')}</p>}
         </ul>
+        {users.length === 0 && <p className="text-sm text-slate-400">{t('No users yet', 'अभी कोई यूज़र नहीं')}</p>}
+        {users.length > 0 && (
+          <DesktopTable
+            columns={[
+              t('Username', 'उपयोगकर्ता नाम'),
+              t('Role', 'भूमिका'),
+              t('Status', 'स्थिति'),
+              ...(canPropose ? [t('Actions', 'कार्रवाई')] : []),
+            ]}
+          >
+            {users.map((u) => (
+              <tr key={u.id} className="hover:bg-slate-800/40">
+                <DeskTd className="font-semibold text-slate-100">{u.username}</DeskTd>
+                <DeskTd>{t(ROLE_LABELS[u.role].en, ROLE_LABELS[u.role].hi)}</DeskTd>
+                <DeskTd>
+                  {u.active ? (
+                    <span className="text-emerald-400">{t('Active', 'सक्रिय')}</span>
+                  ) : (
+                    <span className="text-red-400">{t('Revoked', 'रद्द')}</span>
+                  )}
+                </DeskTd>
+                {canPropose && (
+                  <DeskTd>
+                    {u.active ? (
+                      <button
+                        type="button"
+                        disabled={pendingRevokeIds.has(u.id)}
+                        onClick={() => void onProposeRevoke(u)}
+                        className="min-h-10 rounded-lg px-3 text-sm font-semibold text-red-300 hover:bg-red-950/40 disabled:opacity-40"
+                      >
+                        {pendingRevokeIds.has(u.id) ? t('Pending', 'लंबित') : t('Revoke', 'रद्द करें')}
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </DeskTd>
+                )}
+              </tr>
+            ))}
+          </DesktopTable>
+        )}
       </div>
 
       {decided.length > 0 && (
         <div className="space-y-2">
           <BilingualText as="h3" en="History" hi="इतिहास" className="font-semibold text-slate-300" />
-          <ul className="space-y-2">
+          <ul className="space-y-2 lg:hidden">
             {decided.map((req) => (
               <li key={req.id} className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm text-slate-400">
                 {req.action === 'create' ? t('New login', 'नया लॉगिन') : t('Revoke', 'रद्द')} · {req.payload.username} ·{' '}
@@ -213,6 +258,29 @@ export function UserManagementSection({
               </li>
             ))}
           </ul>
+          <DesktopTable
+            columns={[
+              t('Action', 'कार्रवाई'),
+              t('Username', 'उपयोगकर्ता नाम'),
+              t('Role', 'भूमिका'),
+              t('Status', 'स्थिति'),
+              t('Requested', 'अनुरोधित'),
+            ]}
+          >
+            {decided.map((req) => (
+              <tr key={req.id} className="hover:bg-slate-800/40">
+                <DeskTd>{req.action === 'create' ? t('New login', 'नया लॉगिन') : t('Revoke', 'रद्द')}</DeskTd>
+                <DeskTd className="font-semibold text-slate-100">{req.payload.username}</DeskTd>
+                <DeskTd>{t(ROLE_LABELS[req.payload.role].en, ROLE_LABELS[req.payload.role].hi)}</DeskTd>
+                <DeskTd className={req.status === 'approved' ? 'text-emerald-400' : 'text-red-400'}>
+                  {req.status === 'approved' ? t('Approved', 'स्वीकृत') : t('Rejected', 'अस्वीकृत')}
+                </DeskTd>
+                <DeskTd className="whitespace-nowrap text-slate-400">
+                  {new Date(req.requested_at).toLocaleString()}
+                </DeskTd>
+              </tr>
+            ))}
+          </DesktopTable>
         </div>
       )}
     </section>

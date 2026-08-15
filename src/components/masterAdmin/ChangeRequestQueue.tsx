@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { MasterAdminChangeRequest } from '../../types/masterAdmin'
 import { MASTER_ADMIN_TABLE_LABELS } from '../../types/masterAdmin'
 import { BilingualText } from '../ui/BilingualText'
+import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { useLanguage } from '../../context/LanguageContext'
 
 interface ChangeRequestQueueProps {
@@ -48,6 +49,7 @@ export function ChangeRequestQueue({ requests, canDecide, onDecide }: ChangeRequ
 
   const pending = requests.filter((r) => r.status === 'pending')
   const decided = requests.filter((r) => r.status !== 'pending')
+  const historyRows = [...pending.filter(() => !canDecide), ...decided]
 
   return (
     <section className="space-y-6">
@@ -62,8 +64,9 @@ export function ChangeRequestQueue({ requests, canDecide, onDecide }: ChangeRequ
           {pending.length === 0 && (
             <p className="text-sm text-slate-400">{t('Nothing pending', 'कुछ भी लंबित नहीं')}</p>
           )}
-          {pending.map((req) => (
-            <div key={req.id} className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+            {pending.map((req) => (
+              <div key={req.id} className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-3">
               <p className="font-semibold text-slate-100">
                 {t(MASTER_ADMIN_TABLE_LABELS[req.target_table].en, MASTER_ADMIN_TABLE_LABELS[req.target_table].hi)} ·{' '}
                 {req.action === 'create' ? t('New', 'नया') : t('Update', 'अपडेट')}
@@ -94,7 +97,8 @@ export function ChangeRequestQueue({ requests, canDecide, onDecide }: ChangeRequ
                 </button>
               </div>
             </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -105,40 +109,85 @@ export function ChangeRequestQueue({ requests, canDecide, onDecide }: ChangeRequ
           hi="बदलाव अनुरोध इतिहास"
           className="text-lg font-semibold text-slate-100"
         />
-        {decided.length === 0 && !canDecide && pending.length === 0 && (
+        {historyRows.length === 0 && !canDecide && pending.length === 0 && (
           <p className="text-sm text-slate-400">{t('No change requests yet', 'अभी कोई बदलाव अनुरोध नहीं')}</p>
         )}
-        {[...pending.filter(() => !canDecide), ...decided].map((req) => (
-          <div key={req.id} className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
-            <div className="flex items-center justify-between">
-              <p className="font-semibold text-slate-100">
-                {t(MASTER_ADMIN_TABLE_LABELS[req.target_table].en, MASTER_ADMIN_TABLE_LABELS[req.target_table].hi)} ·{' '}
-                {req.action === 'create' ? t('New', 'नया') : t('Update', 'अपडेट')}
-              </p>
-              <span
-                className={`text-xs font-semibold ${
-                  req.status === 'approved'
-                    ? 'text-emerald-400'
+
+        <div className="space-y-3 lg:hidden">
+          {historyRows.map((req) => (
+            <div key={req.id} className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-slate-100">
+                  {t(MASTER_ADMIN_TABLE_LABELS[req.target_table].en, MASTER_ADMIN_TABLE_LABELS[req.target_table].hi)} ·{' '}
+                  {req.action === 'create' ? t('New', 'नया') : t('Update', 'अपडेट')}
+                </p>
+                <span
+                  className={`text-xs font-semibold ${
+                    req.status === 'approved'
+                      ? 'text-emerald-400'
+                      : req.status === 'rejected'
+                        ? 'text-red-400'
+                        : 'text-amber-400'
+                  }`}
+                >
+                  {req.status === 'approved'
+                    ? t('Approved', 'स्वीकृत')
                     : req.status === 'rejected'
-                      ? 'text-red-400'
-                      : 'text-amber-400'
-                }`}
-              >
-                {req.status === 'approved'
-                  ? t('Approved', 'स्वीकृत')
-                  : req.status === 'rejected'
-                    ? t('Rejected', 'अस्वीकृत')
-                    : t('Pending', 'लंबित')}
-              </span>
+                      ? t('Rejected', 'अस्वीकृत')
+                      : t('Pending', 'लंबित')}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-slate-300">{summarizePayload(req)}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {t('Requested', 'अनुरोधित')} {new Date(req.requested_at).toLocaleString()}
+                {req.decided_at && ` · ${t('Decided', 'निर्णय')} ${new Date(req.decided_at).toLocaleString()}`}
+              </p>
+              {req.decision_note && <p className="mt-1 text-xs text-slate-400">{req.decision_note}</p>}
             </div>
-            <p className="mt-1 text-sm text-slate-300">{summarizePayload(req)}</p>
-            <p className="mt-1 text-xs text-slate-500">
-              {t('Requested', 'अनुरोधित')} {new Date(req.requested_at).toLocaleString()}
-              {req.decided_at && ` · ${t('Decided', 'निर्णय')} ${new Date(req.decided_at).toLocaleString()}`}
-            </p>
-            {req.decision_note && <p className="mt-1 text-xs text-slate-400">{req.decision_note}</p>}
-          </div>
-        ))}
+          ))}
+        </div>
+
+        {historyRows.length > 0 && (
+          <DesktopTable
+            columns={[
+              t('Table', 'तालिका'),
+              t('Action', 'कार्रवाई'),
+              t('Summary', 'सारांश'),
+              t('Status', 'स्थिति'),
+              t('Requested', 'अनुरोधित'),
+              t('Note', 'टिप्पणी'),
+            ]}
+          >
+            {historyRows.map((req) => (
+              <tr key={req.id} className="hover:bg-slate-800/40">
+                <DeskTd className="font-semibold text-slate-100">
+                  {t(MASTER_ADMIN_TABLE_LABELS[req.target_table].en, MASTER_ADMIN_TABLE_LABELS[req.target_table].hi)}
+                </DeskTd>
+                <DeskTd>{req.action === 'create' ? t('New', 'नया') : t('Update', 'अपडेट')}</DeskTd>
+                <DeskTd className="max-w-md whitespace-normal">{summarizePayload(req)}</DeskTd>
+                <DeskTd
+                  className={
+                    req.status === 'approved'
+                      ? 'text-emerald-400'
+                      : req.status === 'rejected'
+                        ? 'text-red-400'
+                        : 'text-amber-400'
+                  }
+                >
+                  {req.status === 'approved'
+                    ? t('Approved', 'स्वीकृत')
+                    : req.status === 'rejected'
+                      ? t('Rejected', 'अस्वीकृत')
+                      : t('Pending', 'लंबित')}
+                </DeskTd>
+                <DeskTd className="whitespace-nowrap text-slate-400">
+                  {new Date(req.requested_at).toLocaleString()}
+                </DeskTd>
+                <DeskTd className="max-w-xs whitespace-normal text-slate-400">{req.decision_note ?? '—'}</DeskTd>
+              </tr>
+            ))}
+          </DesktopTable>
+        )}
       </div>
     </section>
   )

@@ -8,6 +8,7 @@ import type {
 } from '../../types/masterAdmin'
 import { YIELD_METRICS, YIELD_METRIC_LABELS } from '../../types/masterAdmin'
 import { BilingualText } from '../ui/BilingualText'
+import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { useLanguage } from '../../context/LanguageContext'
 import { NumericField, parseNumericField } from '../ui/NumericField'
 
@@ -99,35 +100,37 @@ export function MaterialYieldStandardSection({
 
       {adding && (
         <div className="space-y-3 rounded-2xl border border-slate-700 bg-slate-900/50 p-4">
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Material *" hi="मैटेरियल *" className="font-semibold" />
-            <select
-              value={materialCode}
-              onChange={(e) => setMaterialCode(e.target.value)}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            >
-              <option value="">{t('Select material', 'मैटेरियल चुनें')}</option>
-              {materials.map((m) => (
-                <option key={m.code} value={m.code}>
-                  {m.code} — {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-2">
-            <BilingualText as="span" en="Metric *" hi="मेट्रिक *" className="font-semibold" />
-            <select
-              value={metric}
-              onChange={(e) => setMetric(e.target.value as YieldMetric)}
-              className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
-            >
-              {YIELD_METRICS.map((m) => (
-                <option key={m} value={m}>
-                  {t(YIELD_METRIC_LABELS[m].en, YIELD_METRIC_LABELS[m].hi)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Material *" hi="मैटेरियल *" className="font-semibold" />
+              <select
+                value={materialCode}
+                onChange={(e) => setMaterialCode(e.target.value)}
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+              >
+                <option value="">{t('Select material', 'मैटेरियल चुनें')}</option>
+                {materials.map((m) => (
+                  <option key={m.code} value={m.code}>
+                    {m.code} — {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-2">
+              <BilingualText as="span" en="Metric *" hi="मेट्रिक *" className="font-semibold" />
+              <select
+                value={metric}
+                onChange={(e) => setMetric(e.target.value as YieldMetric)}
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-800 px-4"
+              >
+                {YIELD_METRICS.map((m) => (
+                  <option key={m} value={m}>
+                    {t(YIELD_METRIC_LABELS[m].en, YIELD_METRIC_LABELS[m].hi)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <NumericField id="yield-min" labelEn="Min %" labelHi="न्यूनतम %" value={minPct} onChange={setMinPct} required />
             <NumericField id="yield-max" labelEn="Max %" labelHi="अधिकतम %" value={maxPct} onChange={setMaxPct} required />
@@ -152,7 +155,11 @@ export function MaterialYieldStandardSection({
         </div>
       )}
 
-      <ul className="space-y-3">
+      {byMaterial.length === 0 && (
+        <p className="text-sm text-slate-400">{t('No yield standards yet', 'अभी कोई यील्ड स्टैंडर्ड नहीं')}</p>
+      )}
+
+      <ul className="space-y-3 lg:hidden">
         {byMaterial.map(([code, materialRows]) => (
           <li key={code} className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <p className="mb-2 font-semibold text-slate-100">{code}</p>
@@ -223,10 +230,105 @@ export function MaterialYieldStandardSection({
             </ul>
           </li>
         ))}
-        {byMaterial.length === 0 && (
-          <p className="text-sm text-slate-400">{t('No yield standards yet', 'अभी कोई यील्ड स्टैंडर्ड नहीं')}</p>
-        )}
       </ul>
+
+      {byMaterial.length > 0 && (
+        <DesktopTable
+          columns={[
+            t('Material', 'मैटेरियल'),
+            t('Metric', 'मेट्रिक'),
+            t('Min %', 'न्यूनतम %'),
+            t('Max %', 'अधिकतम %'),
+            t('Status', 'स्थिति'),
+            ...(canPropose ? [t('Actions', 'कार्रवाई')] : []),
+          ]}
+        >
+          {byMaterial.flatMap(([code, materialRows]) =>
+            materialRows.map((r, i) => (
+              <tr key={r.id} className="hover:bg-slate-800/40">
+                <DeskTd className="font-semibold text-slate-100">{i === 0 ? code : ''}</DeskTd>
+                <DeskTd>{t(YIELD_METRIC_LABELS[r.metric].en, YIELD_METRIC_LABELS[r.metric].hi)}</DeskTd>
+                <DeskTd>
+                  {editingId === r.id ? (
+                    <input
+                      value={editMin}
+                      onChange={(e) => setEditMin(e.target.value.replace(/[^\d.]/g, ''))}
+                      className="w-20 min-h-10 rounded-lg border border-slate-600 bg-slate-900 px-2"
+                    />
+                  ) : (
+                    r.min_pct
+                  )}
+                </DeskTd>
+                <DeskTd>
+                  {editingId === r.id ? (
+                    <input
+                      value={editMax}
+                      onChange={(e) => setEditMax(e.target.value.replace(/[^\d.]/g, ''))}
+                      className="w-20 min-h-10 rounded-lg border border-slate-600 bg-slate-900 px-2"
+                    />
+                  ) : (
+                    r.max_pct
+                  )}
+                </DeskTd>
+                <DeskTd>
+                  {r.active ? (
+                    <span className="text-emerald-400">{t('Active', 'सक्रिय')}</span>
+                  ) : (
+                    <span className="text-red-400">{t('Inactive', 'निष्क्रिय')}</span>
+                  )}
+                </DeskTd>
+                {canPropose && (
+                  <DeskTd>
+                    {editingId === r.id ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void onUpdate(r.id, { min_pct: Number(editMin), max_pct: Number(editMax) }).then(() =>
+                              setEditingId(null),
+                            )
+                          }
+                          className="min-h-10 rounded-lg bg-emerald-500 px-3 text-sm font-semibold text-on-accent"
+                        >
+                          {t('Save', 'सहेजें')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          className="min-h-10 text-sm text-slate-400"
+                        >
+                          {t('Cancel', 'रद्द करें')}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(r.id)
+                            setEditMin(String(r.min_pct))
+                            setEditMax(String(r.max_pct))
+                          }}
+                          className="min-h-10 text-sm font-semibold text-slate-400 hover:text-slate-200"
+                        >
+                          {t('Edit', 'संपादित करें')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void onUpdate(r.id, { active: !r.active })}
+                          className={`min-h-10 text-sm font-semibold ${r.active ? 'text-red-300' : 'text-emerald-300'}`}
+                        >
+                          {r.active ? t('Deactivate', 'निष्क्रिय करें') : t('Reactivate', 'पुनः सक्रिय करें')}
+                        </button>
+                      </div>
+                    )}
+                  </DeskTd>
+                )}
+              </tr>
+            )),
+          )}
+        </DesktopTable>
+      )}
     </section>
   )
 }

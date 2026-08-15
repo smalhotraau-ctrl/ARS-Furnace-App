@@ -98,7 +98,7 @@ export function BatchPlanPage() {
   if (!user) return null
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 lg:max-w-6xl">
       <header className="space-y-2">
         <BilingualText
           as="h1"
@@ -124,7 +124,7 @@ export function BatchPlanPage() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent"
+          className="min-h-14 w-full rounded-xl bg-emerald-500 text-lg font-semibold text-on-accent lg:w-auto lg:px-8"
         >
           {t('New Batch Plan', 'नई बैच योजना')}
         </button>
@@ -169,7 +169,7 @@ export function BatchPlanPage() {
       )}
 
       {!creating && !editing && (
-        <>
+        <div className="space-y-4 lg:grid lg:grid-cols-[minmax(16rem,26rem)_minmax(0,1fr)] lg:items-start lg:gap-6 lg:space-y-0">
           <div>
             <BilingualText
               as="h2"
@@ -182,36 +182,34 @@ export function BatchPlanPage() {
               selectedId={selectedPlan?.id ?? null}
               onSelect={setSelectedPlan}
             />
+            {canCreateEdit && selectedPlan && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="mt-3 min-h-12 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-base font-semibold text-emerald-300"
+              >
+                {t('Edit selected plan', 'चयनित योजना संपादित करें')}
+              </button>
+            )}
           </div>
 
-          {canCreateEdit && selectedPlan && (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="min-h-12 w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-base font-semibold text-emerald-300"
-            >
-              {t('Edit selected plan', 'चयनित योजना संपादित करें')}
-            </button>
-          )}
-
-          {isViewOnly && (
+          <div className={`space-y-4 ${isViewOnly ? '' : 'hidden lg:block'}`}>
             <BatchPlanDetail plan={selectedPlan} />
-          )}
-
-          {canOwnerReview && (
-            <OwnerReviewForm
-              plan={selectedPlan}
-              onSubmit={async (note) => {
-                if (!selectedPlan) return
-                const saved = await acknowledgeBatchPlan(user, selectedPlan, note)
-                setPlans((prev) => prev.map((p) => (p.id === saved.id ? saved : p)))
-                setSelectedPlan(saved)
-                setPendingUploads(getBatchPendingCount())
-                showSavedToast()
-              }}
-            />
-          )}
-        </>
+            {canOwnerReview && (
+              <OwnerReviewForm
+                plan={selectedPlan}
+                onSubmit={async (note) => {
+                  if (!selectedPlan) return
+                  const saved = await acknowledgeBatchPlan(user, selectedPlan, note)
+                  setPlans((prev) => prev.map((p) => (p.id === saved.id ? saved : p)))
+                  setSelectedPlan(saved)
+                  setPendingUploads(getBatchPendingCount())
+                  showSavedToast()
+                }}
+              />
+            )}
+          </div>
+        </div>
       )}
 
       <SavedConfirmation visible={savedVisible} />
