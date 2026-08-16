@@ -24,6 +24,8 @@ import type {
   ApprovalActionType,
   ApprovalSetting,
   HeatCostingOverridePayload,
+  ProcessCostStandardCreatePayload,
+  ProcessCostStandardRow,
   RateMasterCreatePayload,
   RateMasterUpdatePayload,
 } from '../types/costing'
@@ -91,6 +93,24 @@ export async function fetchAllMaterialYieldStandards(): Promise<MaterialYieldSta
     .order('metric')
   if (error) throw error
   return (data ?? []) as MaterialYieldStandardRow[]
+}
+
+export async function fetchAllProcessCostStandards(): Promise<ProcessCostStandardRow[]> {
+  const { data, error } = await furnace()
+    .from('process_cost_standards')
+    .select('*')
+    .order('effective_from', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    fuel_cost_per_kg: Number(row.fuel_cost_per_kg),
+    manpower_cost_per_kg: Number(row.manpower_cost_per_kg),
+    consumables_cost_per_kg: Number(row.consumables_cost_per_kg),
+    electrical_transport_cost_per_kg: Number(row.electrical_transport_cost_per_kg),
+    effective_from: String(row.effective_from),
+    updated_by: String(row.updated_by),
+    updated_at: String(row.updated_at),
+  }))
 }
 
 export async function fetchChangeRequests(): Promise<MasterAdminChangeRequest[]> {
@@ -310,6 +330,20 @@ async function applyChangeToTarget(request: ChangeApplication): Promise<void> {
           .from('rate_master')
           .update({ ...payload, updated_by: authoredBy, updated_at: new Date().toISOString() })
           .eq('id', request.target_id)
+        if (error) throw error
+      }
+      return
+    }
+
+    case 'process_cost_standards': {
+      if (request.action === 'create') {
+        const payload = request.payload as unknown as ProcessCostStandardCreatePayload
+        const { error } = await furnace()
+          .from('process_cost_standards')
+          .insert({
+            ...payload,
+            updated_by: authoredBy,
+          })
         if (error) throw error
       }
       return

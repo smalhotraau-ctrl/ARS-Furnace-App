@@ -1,15 +1,58 @@
 import type { BatchPlan } from '../../types/batchPlan'
+import type { GradeSpecRow, MaterialStdRow } from '../../types/batchPlan'
+import { useMemo } from 'react'
+import { computeExpectedComposition } from '../../lib/compositionCalc'
 import { ExpectedCompositionPanel } from './ExpectedCompositionPanel'
+import { EstimatedCostingPanel } from './EstimatedCostingPanel'
+import { computeBatchPlanEstimate } from '../../lib/batchPlanEstimate'
+import type { ProcessCostStandardRow, RateMasterRow } from '../../types/costing'
+import type { MaterialYieldStandardRow } from '../../types/output'
 import { BilingualText } from '../ui/BilingualText'
 import { DeskTd, DesktopTable } from '../ui/DesktopTable'
 import { useLanguage } from '../../context/LanguageContext'
 
 interface BatchPlanDetailProps {
   plan: BatchPlan | null
+  materialStd: MaterialStdRow[]
+  gradeSpecs: GradeSpecRow[]
+  showEstimates?: boolean
+  rates?: RateMasterRow[]
+  yieldStandards?: MaterialYieldStandardRow[]
+  processStandards?: ProcessCostStandardRow[]
 }
 
-export function BatchPlanDetail({ plan }: BatchPlanDetailProps) {
+export function BatchPlanDetail({
+  plan,
+  materialStd,
+  gradeSpecs,
+  showEstimates = false,
+  rates = [],
+  yieldStandards = [],
+  processStandards = [],
+}: BatchPlanDetailProps) {
   const { t } = useLanguage()
+
+  const composition = useMemo(
+    () =>
+      plan
+        ? computeExpectedComposition(plan.planned_lines, materialStd, gradeSpecs, plan.grade_code)
+        : [],
+    [plan, materialStd, gradeSpecs],
+  )
+
+  const estimate = useMemo(
+    () =>
+      plan && showEstimates
+        ? computeBatchPlanEstimate(
+            plan.planned_lines,
+            plan.plan_date,
+            rates,
+            yieldStandards,
+            processStandards,
+          )
+        : null,
+    [plan, showEstimates, rates, yieldStandards, processStandards],
+  )
 
   if (!plan) {
     return (
@@ -67,7 +110,9 @@ export function BatchPlanDetail({ plan }: BatchPlanDetailProps) {
         </DesktopTable>
       </div>
 
-      <ExpectedCompositionPanel composition={plan.expected_composition} />
+      <ExpectedCompositionPanel composition={composition} />
+
+      {showEstimates && estimate && <EstimatedCostingPanel estimate={estimate} />}
 
       <p className="text-xs text-slate-500">
         {t('Owner review does not block charging', 'मालिक की समीक्षा charging नहीं रोकती')}

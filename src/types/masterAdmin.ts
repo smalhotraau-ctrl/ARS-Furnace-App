@@ -1,4 +1,4 @@
-import type { HeatCostingOverridePayload, RateMasterCreatePayload, RateMasterUpdatePayload } from './costing'
+import type { HeatCostingOverridePayload, ProcessCostStandardCreatePayload, RateMasterCreatePayload, RateMasterUpdatePayload } from './costing'
 
 export interface Furnace {
   id: string
@@ -144,6 +144,7 @@ export type MasterAdminTargetTable =
   | 'material_yield_standards'
   | 'rate_master'
   | 'heat_costing'
+  | 'process_cost_standards'
 
 export type MasterAdminAction = 'create' | 'update'
 
@@ -159,6 +160,7 @@ export type MasterAdminPayload =
   | MaterialYieldStandardUpdatePayload
   | RateMasterCreatePayload
   | RateMasterUpdatePayload
+  | ProcessCostStandardCreatePayload
   | HeatCostingOverridePayload
 
 export interface MasterAdminChangeRequest {
@@ -183,4 +185,5 @@ export const MASTER_ADMIN_TABLE_LABELS: Record<MasterAdminTargetTable, { en: str
   material_yield_standards: { en: 'Yield Standard', hi: 'यील्ड स्टैंडर्ड' },
   rate_master: { en: 'Rate Master', hi: 'रेट मास्टर' },
   heat_costing: { en: 'Material Cost Override', hi: 'मैटेरियल लागत ओवरराइड' },
+  process_cost_standards: { en: 'Process Cost Standards', hi: 'प्रक्रिया लागत मानक' },
 }

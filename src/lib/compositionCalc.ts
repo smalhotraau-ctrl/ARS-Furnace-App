@@ -5,6 +5,23 @@ import type {
   PlannedLine,
 } from '../types/batchPlan'
 
+function normalizeElement(element: string): string {
+  return element.trim().toUpperCase()
+}
+
+function normalizeMaterialCode(code: string): string {
+  return code.trim().toUpperCase()
+}
+
+function stdPctFor(materialStd: MaterialStdRow[], materialCode: string, element: string): number | null {
+  const row = materialStd.find(
+    (r) =>
+      normalizeMaterialCode(r.material_code) === normalizeMaterialCode(materialCode) &&
+      normalizeElement(r.element) === normalizeElement(element),
+  )
+  return row?.std_pct ?? null
+}
+
 export function computeExpectedComposition(
   plannedLines: PlannedLine[],
   materialStd: MaterialStdRow[],
@@ -22,16 +39,14 @@ export function computeExpectedComposition(
   return elements.map((element) => {
     let weightedSum = 0
     for (const line of plannedLines) {
-      const std = materialStd.find(
-        (row) => row.material_code === line.material_code && row.element === element,
-      )
-      if (std) {
-        weightedSum += std.std_pct * line.planned_kg
+      const stdPct = stdPctFor(materialStd, line.material_code, element)
+      if (stdPct != null) {
+        weightedSum += stdPct * line.planned_kg
       }
     }
 
     const expected_pct = weightedSum / totalKg
-    const spec = specsForGrade.find((row) => row.element === element)
+    const spec = specsForGrade.find((row) => normalizeElement(row.element) === normalizeElement(element))
     const inSpec = spec
       ? expected_pct >= spec.min_pct && expected_pct <= spec.max_pct
       : true

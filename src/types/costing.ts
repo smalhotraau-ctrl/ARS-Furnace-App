@@ -88,3 +88,22 @@ export const APPROVAL_ACTION_LABELS: Record<ApprovalActionType, { en: string; hi
   rate_override: { en: 'Rate override', hi: 'रेट ओवरराइड' },
   master_admin_change: { en: 'Master Admin changes', hi: 'मास्टर एडमिन बदलाव' },
 }
+
+export interface ProcessCostStandardRow {
+  id: string
+  fuel_cost_per_kg: number
+  manpower_cost_per_kg: number
+  consumables_cost_per_kg: number
+  electrical_transport_cost_per_kg: number
+  effective_from: string
+  updated_by: string
+  updated_at: string
+}
+
+export interface ProcessCostStandardCreatePayload {
+  fuel_cost_per_kg: number
+  manpower_cost_per_kg: number
+  consumables_cost_per_kg: number
+  electrical_transport_cost_per_kg: number
+  effective_from: string
+}

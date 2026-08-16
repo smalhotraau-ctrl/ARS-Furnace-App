@@ -38,6 +38,8 @@ function summarizePayload(request: MasterAdminChangeRequest): string {
         : JSON.stringify(p)
     case 'heat_costing':
       return `Override material cost to ₹${p.material_cost_final ?? ''} — ${p.material_cost_override_reason ?? ''}`
+    case 'process_cost_standards':
+      return `From ${p.effective_from ?? ''}: fuel ₹${p.fuel_cost_per_kg ?? ''}, labour ₹${p.manpower_cost_per_kg ?? ''}, consumables ₹${p.consumables_cost_per_kg ?? ''}, elec/transport ₹${p.electrical_transport_cost_per_kg ?? ''}/kg`
     default:
       return JSON.stringify(p)
   }

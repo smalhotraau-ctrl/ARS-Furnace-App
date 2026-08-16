@@ -20,7 +20,12 @@ import {
   syncBatchPendingActions,
   updateBatchPlan,
 } from '../lib/batchPlanService'
+import { fetchAllProcessCostStandards } from '../lib/masterAdminService'
+import { fetchRateMaster } from '../lib/costingService'
+import { fetchYieldStandards } from '../lib/outputService'
 import type { BatchPlan, GradeSpecRow, MaterialOption, MaterialStdRow } from '../types/batchPlan'
+import type { ProcessCostStandardRow, RateMasterRow } from '../types/costing'
+import type { MaterialYieldStandardRow } from '../types/output'
 
 export function BatchPlanPage() {
   const { t } = useLanguage()
@@ -33,6 +38,9 @@ export function BatchPlanPage() {
   const [materials, setMaterials] = useState<MaterialOption[]>([])
   const [materialStd, setMaterialStd] = useState<MaterialStdRow[]>([])
   const [gradeSpecs, setGradeSpecs] = useState<GradeSpecRow[]>([])
+  const [rates, setRates] = useState<RateMasterRow[]>([])
+  const [yieldStandards, setYieldStandards] = useState<MaterialYieldStandardRow[]>([])
+  const [processStandards, setProcessStandards] = useState<ProcessCostStandardRow[]>([])
   const [loading, setLoading] = useState(true)
   const [savedVisible, setSavedVisible] = useState(false)
   const [pendingUploads, setPendingUploads] = useState(getBatchPendingCount())
@@ -41,6 +49,7 @@ export function BatchPlanPage() {
 
   const canCreateEdit = role === 'plant_head'
   const canOwnerReview = role === 'admin_owner'
+  const showEstimates = role === 'plant_head' || role === 'admin_owner'
   const isViewOnly = role === 'supervisor' || role === 'qa' || role === 'admin_owner'
   // Plant Head is the only role that writes to this queue (create/edit), so they're the only
   // one who can actually have entries stuck pending upload — same treatment as every other
@@ -52,19 +61,25 @@ export function BatchPlanPage() {
       if (navigator.onLine) {
         await syncBatchPendingActions()
       }
-      const [nextPlans, nextGrades, nextMaterials, nextMaterialStd, nextGradeSpecs] =
+      const [nextPlans, nextGrades, nextMaterials, nextMaterialStd, nextGradeSpecs, nextRates, nextYield, nextProcess] =
         await Promise.all([
           navigator.onLine ? fetchBatchPlans() : Promise.resolve(loadLocalBatchPlans()),
           fetchGradeCodes().catch(() => [] as string[]),
           fetchActiveMaterials().catch(() => [] as MaterialOption[]),
           fetchMaterialStdComposition().catch(() => [] as MaterialStdRow[]),
           fetchGradeSpecs().catch(() => [] as GradeSpecRow[]),
+          showEstimates ? fetchRateMaster().catch(() => [] as RateMasterRow[]) : Promise.resolve([] as RateMasterRow[]),
+          showEstimates ? fetchYieldStandards().catch(() => [] as MaterialYieldStandardRow[]) : Promise.resolve([] as MaterialYieldStandardRow[]),
+          showEstimates ? fetchAllProcessCostStandards().catch(() => [] as ProcessCostStandardRow[]) : Promise.resolve([] as ProcessCostStandardRow[]),
         ])
       setPlans(nextPlans)
       setGradeCodes(nextGrades)
       setMaterials(nextMaterials)
       setMaterialStd(nextMaterialStd)
       setGradeSpecs(nextGradeSpecs)
+      setRates(nextRates)
+      setYieldStandards(nextYield)
+      setProcessStandards(nextProcess)
       setPendingUploads(getBatchPendingCount())
     } catch {
       setPlans(loadLocalBatchPlans())
@@ -72,7 +87,7 @@ export function BatchPlanPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [showEstimates])
 
   useEffect(() => {
     void refreshData()
@@ -132,6 +147,10 @@ export function BatchPlanPage() {
           materials={materials}
           materialStd={materialStd}
           gradeSpecs={gradeSpecs}
+          showEstimates={showEstimates}
+          rates={rates}
+          yieldStandards={yieldStandards}
+          processStandards={processStandards}
           onCancel={() => setCreating(false)}
           onSubmit={async (values) => {
             const saved = await saveBatchPlan(user, values)
@@ -149,6 +168,10 @@ export function BatchPlanPage() {
           materials={materials}
           materialStd={materialStd}
           gradeSpecs={gradeSpecs}
+          showEstimates={showEstimates}
+          rates={rates}
+          yieldStandards={yieldStandards}
+          processStandards={processStandards}
           initialPlan={selectedPlan}
           onCancel={() => setEditing(false)}
           onSubmit={async (values) => {
@@ -188,7 +211,15 @@ export function BatchPlanPage() {
           </div>
 
           <div className={`space-y-4 ${isViewOnly ? '' : 'hidden lg:block'}`}>
-            <BatchPlanDetail plan={selectedPlan} />
+            <BatchPlanDetail
+              plan={selectedPlan}
+              materialStd={materialStd}
+              gradeSpecs={gradeSpecs}
+              showEstimates={showEstimates}
+              rates={rates}
+              yieldStandards={yieldStandards}
+              processStandards={processStandards}
+            />
             {canOwnerReview && (
               <OwnerReviewForm
                 plan={selectedPlan}

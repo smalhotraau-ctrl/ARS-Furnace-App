@@ -18,10 +18,12 @@ import {
   fetchAllMaterials,
   fetchAllMaterialStdComposition,
   fetchAllMaterialYieldStandards,
+  fetchAllProcessCostStandards,
   fetchChangeRequests,
   fetchRequiresOwnerApproval,
   proposeChange,
 } from '../lib/masterAdminService'
+import { ProcessCostStandardsSection } from '../components/masterAdmin/ProcessCostStandardsSection'
 import {
   decideUserChangeRequest,
   fetchAllUsers,
@@ -50,6 +52,7 @@ import type {
   MasterAdminTargetTable,
 } from '../types/masterAdmin'
 import type { ManagedUser, UserChangeRequest } from '../types/userManagement'
+import type { ProcessCostStandardCreatePayload, ProcessCostStandardRow } from '../types/costing'
 import type { UserRole } from '../types/auth'
 
 type Tab =
@@ -58,6 +61,7 @@ type Tab =
   | 'materials'
   | 'material_std_composition'
   | 'material_yield_standards'
+  | 'process_cost_standards'
   | 'users'
   | 'approvals'
 
@@ -81,6 +85,7 @@ export function MasterAdminPage() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [materialStd, setMaterialStd] = useState<MaterialStdCompositionRow[]>([])
   const [yieldStandards, setYieldStandards] = useState<MaterialYieldStandardRow[]>([])
+  const [processCostStandards, setProcessCostStandards] = useState<ProcessCostStandardRow[]>([])
   const [changeRequests, setChangeRequests] = useState<MasterAdminChangeRequest[]>([])
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [userChangeRequests, setUserChangeRequests] = useState<UserChangeRequest[]>([])
@@ -107,6 +112,7 @@ export function MasterAdminPage() {
         nextMaterials,
         nextMaterialStd,
         nextYield,
+        nextProcessCost,
         nextRequests,
         nextGate,
         nextUsers,
@@ -117,6 +123,7 @@ export function MasterAdminPage() {
         fetchAllMaterials(),
         fetchAllMaterialStdComposition(),
         fetchAllMaterialYieldStandards(),
+        fetchAllProcessCostStandards(),
         fetchChangeRequests(),
         fetchRequiresOwnerApproval(),
         fetchAllUsers(),
@@ -127,6 +134,7 @@ export function MasterAdminPage() {
       setMaterials(nextMaterials)
       setMaterialStd(nextMaterialStd)
       setYieldStandards(nextYield)
+      setProcessCostStandards(nextProcessCost)
       setChangeRequests(nextRequests)
       setRequiresOwnerApproval(nextGate)
       setUsers(nextUsers)
@@ -206,6 +214,7 @@ export function MasterAdminPage() {
     { id: 'materials', en: 'Materials', hi: 'मैटेरियल' },
     { id: 'material_std_composition', en: 'Std. Composition', hi: 'स्टैंडर्ड संरचना' },
     { id: 'material_yield_standards', en: 'Yield Standards', hi: 'यील्ड स्टैंडर्ड' },
+    { id: 'process_cost_standards', en: 'Process Costs', hi: 'प्रक्रिया लागत' },
     { id: 'users', en: 'Users', hi: 'यूज़र' },
     { id: 'approvals', en: 'Approvals', hi: 'स्वीकृतियाँ' },
   ]
@@ -314,6 +323,17 @@ export function MasterAdminPage() {
           }
           onUpdate={(rowId: string, payload: MaterialYieldStandardUpdatePayload) =>
             submitChange('material_yield_standards', 'update', payload, rowId)
+          }
+        />
+      )}
+
+      {!loading && tab === 'process_cost_standards' && (
+        <ProcessCostStandardsSection
+          rows={processCostStandards}
+          canPropose={canPropose}
+          autoApproved={autoApproved}
+          onCreate={(payload: ProcessCostStandardCreatePayload) =>
+            submitChange('process_cost_standards', 'create', payload, null)
           }
         />
       )}

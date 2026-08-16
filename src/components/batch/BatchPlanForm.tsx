@@ -2,7 +2,11 @@ import { useState } from 'react'
 import type { BatchPlan } from '../../types/batchPlan'
 import type { GradeSpecRow, MaterialOption, MaterialStdRow, PlannedLine } from '../../types/batchPlan'
 import { computeExpectedComposition } from '../../lib/compositionCalc'
+import { computeBatchPlanEstimate } from '../../lib/batchPlanEstimate'
 import { ExpectedCompositionPanel } from './ExpectedCompositionPanel'
+import { EstimatedCostingPanel } from './EstimatedCostingPanel'
+import type { ProcessCostStandardRow, RateMasterRow } from '../../types/costing'
+import type { MaterialYieldStandardRow } from '../../types/output'
 import { PlannedLinesEditor } from './PlannedLinesEditor'
 import { BilingualText } from '../ui/BilingualText'
 import { useLanguage } from '../../context/LanguageContext'
@@ -14,6 +18,10 @@ interface BatchPlanFormProps {
   gradeSpecs: GradeSpecRow[]
   initialPlan?: BatchPlan | null
   disabled?: boolean
+  showEstimates?: boolean
+  rates?: RateMasterRow[]
+  yieldStandards?: MaterialYieldStandardRow[]
+  processStandards?: ProcessCostStandardRow[]
   onSubmit: (values: {
     grade_code: string
     plan_date: string
@@ -34,6 +42,10 @@ export function BatchPlanForm({
   gradeSpecs,
   initialPlan = null,
   disabled = false,
+  showEstimates = false,
+  rates = [],
+  yieldStandards = [],
+  processStandards = [],
   onSubmit,
   onCancel,
 }: BatchPlanFormProps) {
@@ -50,6 +62,10 @@ export function BatchPlanForm({
     gradeSpecs,
     gradeCode,
   )
+
+  const estimate = showEstimates
+    ? computeBatchPlanEstimate(plannedLines, planDate, rates, yieldStandards, processStandards)
+    : null
 
   const stepOneValid = Boolean(gradeCode && planDate)
   const stepTwoValid = plannedLines.length > 0
@@ -130,14 +146,15 @@ export function BatchPlanForm({
 
       {step === 1 && (
         <div className="space-y-5">
+          <PlannedLinesEditor
+            lines={plannedLines}
+            materials={materials}
+            disabled={disabled}
+            onChange={setPlannedLines}
+          />
           <div className="space-y-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
-            <PlannedLinesEditor
-              lines={plannedLines}
-              materials={materials}
-              disabled={disabled}
-              onChange={setPlannedLines}
-            />
             <ExpectedCompositionPanel composition={expectedComposition} />
+            {showEstimates && estimate && <EstimatedCostingPanel estimate={estimate} />}
           </div>
           <div className="flex gap-3">
             <button
