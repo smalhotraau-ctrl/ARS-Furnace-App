@@ -8,6 +8,7 @@ import { NumericField, parseNumericField } from '../ui/NumericField'
 interface StartHeatFormProps {
   furnaces: FurnaceOption[]
   batchPlans: BatchPlan[]
+  linkedPlanIds: Set<string>
   gradeCodes: string[]
   disabled?: boolean
   onStart: (values: {
@@ -20,7 +21,7 @@ interface StartHeatFormProps {
   }) => Promise<{ error?: string }>
 }
 
-export function StartHeatForm({ furnaces, batchPlans, gradeCodes, disabled = false, onStart }: StartHeatFormProps) {
+export function StartHeatForm({ furnaces, batchPlans, linkedPlanIds, gradeCodes, disabled = false, onStart }: StartHeatFormProps) {
   const { t } = useLanguage()
   const [furnaceCode, setFurnaceCode] = useState('')
   const [batchPlanId, setBatchPlanId] = useState('')
@@ -32,16 +33,23 @@ export function StartHeatForm({ furnaces, batchPlans, gradeCodes, disabled = fal
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const filteredPlans = batchPlans.filter((p) => !furnaceCode || p.furnace_code === furnaceCode)
+  const filteredPlans = batchPlans.filter((p) => {
+    if (linkedPlanIds.has(p.id)) return false
+    if (gradeCode && p.grade_code !== gradeCode) return false
+    return true
+  })
   const selectedPlan = batchPlans.find((p) => p.id === batchPlanId)
 
   function handlePlanChange(planId: string) {
     setBatchPlanId(planId)
     const plan = batchPlans.find((p) => p.id === planId)
-    if (plan) {
-      setGradeCode(plan.grade_code)
-      setFurnaceCode(plan.furnace_code)
-    }
+    if (plan) setGradeCode(plan.grade_code)
+  }
+
+  function handleGradeChange(nextGrade: string) {
+    setGradeCode(nextGrade)
+    const plan = batchPlans.find((p) => p.id === batchPlanId)
+    if (plan && nextGrade && plan.grade_code !== nextGrade) setBatchPlanId('')
   }
 
   async function handleSubmit(emergency: boolean) {
@@ -116,7 +124,7 @@ export function StartHeatForm({ furnaces, batchPlans, gradeCodes, disabled = fal
         >
           <option value="">{t('No plan', 'कोई योजना नहीं')}</option>
           {filteredPlans.map((p) => (
-            <option key={p.id} value={p.id}>{p.furnace_code} · {p.grade_code} · {p.plan_date}</option>
+            <option key={p.id} value={p.id}>{p.grade_code} · {p.plan_date}</option>
           ))}
         </select>
       </label>
@@ -126,7 +134,7 @@ export function StartHeatForm({ furnaces, batchPlans, gradeCodes, disabled = fal
         <select
           value={gradeCode}
           disabled={disabled || Boolean(selectedPlan)}
-          onChange={(e) => setGradeCode(e.target.value)}
+          onChange={(e) => handleGradeChange(e.target.value)}
           className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
         >
           <option value="">{t('Select', 'चुनें')}</option>

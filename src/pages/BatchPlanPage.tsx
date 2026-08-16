@@ -13,7 +13,6 @@ import {
   fetchBatchPlans,
   fetchGradeCodes,
   fetchGradeSpecs,
-  fetchMainFurnaces,
   fetchMaterialStdComposition,
   getBatchPendingCount,
   loadLocalBatchPlans,
@@ -21,7 +20,7 @@ import {
   syncBatchPendingActions,
   updateBatchPlan,
 } from '../lib/batchPlanService'
-import type { BatchPlan, FurnaceOption, GradeSpecRow, MaterialOption, MaterialStdRow } from '../types/batchPlan'
+import type { BatchPlan, GradeSpecRow, MaterialOption, MaterialStdRow } from '../types/batchPlan'
 
 export function BatchPlanPage() {
   const { t } = useLanguage()
@@ -30,7 +29,6 @@ export function BatchPlanPage() {
 
   const [plans, setPlans] = useState<BatchPlan[]>(() => loadLocalBatchPlans())
   const [selectedPlan, setSelectedPlan] = useState<BatchPlan | null>(null)
-  const [furnaces, setFurnaces] = useState<FurnaceOption[]>([])
   const [gradeCodes, setGradeCodes] = useState<string[]>([])
   const [materials, setMaterials] = useState<MaterialOption[]>([])
   const [materialStd, setMaterialStd] = useState<MaterialStdRow[]>([])
@@ -54,17 +52,15 @@ export function BatchPlanPage() {
       if (navigator.onLine) {
         await syncBatchPendingActions()
       }
-      const [nextPlans, nextFurnaces, nextGrades, nextMaterials, nextMaterialStd, nextGradeSpecs] =
+      const [nextPlans, nextGrades, nextMaterials, nextMaterialStd, nextGradeSpecs] =
         await Promise.all([
           navigator.onLine ? fetchBatchPlans() : Promise.resolve(loadLocalBatchPlans()),
-          fetchMainFurnaces().catch(() => [] as FurnaceOption[]),
           fetchGradeCodes().catch(() => [] as string[]),
           fetchActiveMaterials().catch(() => [] as MaterialOption[]),
           fetchMaterialStdComposition().catch(() => [] as MaterialStdRow[]),
           fetchGradeSpecs().catch(() => [] as GradeSpecRow[]),
         ])
       setPlans(nextPlans)
-      setFurnaces(nextFurnaces)
       setGradeCodes(nextGrades)
       setMaterials(nextMaterials)
       setMaterialStd(nextMaterialStd)
@@ -132,7 +128,6 @@ export function BatchPlanPage() {
 
       {canCreateEdit && creating && (
         <BatchPlanForm
-          furnaces={furnaces}
           gradeCodes={gradeCodes}
           materials={materials}
           materialStd={materialStd}
@@ -150,7 +145,6 @@ export function BatchPlanPage() {
 
       {canCreateEdit && editing && selectedPlan && (
         <BatchPlanForm
-          furnaces={furnaces}
           gradeCodes={gradeCodes}
           materials={materials}
           materialStd={materialStd}

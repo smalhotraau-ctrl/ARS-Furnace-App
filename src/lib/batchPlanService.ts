@@ -118,7 +118,7 @@ export async function saveBatchPlan(
     id: localId,
     _localId: localId,
     _pending: true,
-    furnace_code: insert.furnace_code,
+    furnace_code: null,
     grade_code: insert.grade_code,
     plan_date: insert.plan_date,
     planned_lines: insert.planned_lines,
@@ -166,7 +166,6 @@ export async function updateBatchPlan(
     if (insertAction && insertAction.kind === 'insert') {
       insertAction.payload = {
         ...insertAction.payload,
-        furnace_code: payload.furnace_code,
         grade_code: payload.grade_code,
         plan_date: payload.plan_date,
         planned_lines: payload.planned_lines,

@@ -28,9 +28,7 @@ export function BatchPlanDetail({ plan }: BatchPlanDetailProps) {
           hi="बैच योजना विवरण"
           className="text-xl font-bold text-slate-100"
         />
-        <p className="mt-2 text-lg font-semibold text-emerald-400">
-          {plan.furnace_code} · {plan.grade_code}
-        </p>
+        <p className="mt-2 text-lg font-semibold text-emerald-400">{plan.grade_code}</p>
         <p className="text-sm text-slate-400">{plan.plan_date} · {plan.status}</p>
       </div>
 

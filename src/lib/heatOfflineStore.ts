@@ -14,6 +14,14 @@ const CHARGE_LINES_KEY = 'furnace:charge_lines'
 const CYCLE_LOG_KEY = 'furnace:cycle_log'
 const TEMP_READINGS_KEY = 'furnace:temp_readings'
 const QUEUE_KEY = 'furnace:heat_queue'
+const SYNC_ERRORS_KEY = 'furnace:heat_sync_errors'
+
+export interface HeatSyncError {
+  at: string
+  action: HeatQueueAction['kind']
+  message: string
+  code?: string
+}
 
 // Every variant carries its own `queueId` — a client-generated id for the QUEUE ENTRY itself,
 // distinct from `localId`/`requestId` (which identify the underlying business row). This is the
@@ -269,4 +277,70 @@ export function rowToHeatNoCorrection(row: Record<string, unknown>): HeatNoCorre
 
 export function getHeatPendingCount(): number {
   return getHeatQueue().length
+}
+
+// A heat row's server `id` replaces the client-generated id once `heat_insert` syncs. Dependent
+// charge/cycle/temp rows and queue payloads must follow that remap or their FK inserts 409.
+export function resolveHeatId(heatId: string): string {
+  const heat = getCachedHeats().find((h) => h.id === heatId || h._localId === heatId)
+  return heat?.id ?? heatId
+}
+
+export function getHeatIdAliases(heatId: string): Set<string> {
+  const aliases = new Set<string>([heatId])
+  const heat = getCachedHeats().find((h) => h.id === heatId || h._localId === heatId)
+  if (heat) {
+    aliases.add(heat.id)
+    if (heat._localId) aliases.add(heat._localId)
+  }
+  return aliases
+}
+
+export function repointHeatDependents(fromId: string, toId: string) {
+  if (fromId === toId) return
+
+  setCachedChargeLines(
+    getCachedChargeLines().map((line) =>
+      line.heat_id === fromId ? { ...line, heat_id: toId } : line,
+    ),
+  )
+  setCachedCycleLog(
+    getCachedCycleLog().map((entry) =>
+      entry.heat_id === fromId ? { ...entry, heat_id: toId } : entry,
+    ),
+  )
+  setCachedTempReadings(
+    getCachedTempReadings().map((reading) =>
+      reading.heat_id === fromId ? { ...reading, heat_id: toId } : reading,
+    ),
+  )
+
+  setHeatQueue(
+    getHeatQueue().map((action) => {
+      if (
+        (action.kind === 'charge_insert' ||
+          action.kind === 'cycle_insert' ||
+          action.kind === 'temp_insert') &&
+        action.payload.heat_id === fromId
+      ) {
+        return { ...action, payload: { ...action.payload, heat_id: toId } }
+      }
+      if (action.kind === 'heat_update' && action.heatId === fromId) {
+        return { ...action, heatId: toId }
+      }
+      return action
+    }),
+  )
+}
+
+export function getHeatSyncErrors(): HeatSyncError[] {
+  return readJson<HeatSyncError[]>(SYNC_ERRORS_KEY, [])
+}
+
+export function setHeatSyncErrors(errors: HeatSyncError[]) {
+  writeJson(SYNC_ERRORS_KEY, errors)
+}
+
+export function clearHeatSyncErrors() {
+  localStorage.removeItem(SYNC_ERRORS_KEY)
 }

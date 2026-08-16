@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { BatchPlan, FurnaceOption } from '../../types/batchPlan'
+import type { BatchPlan } from '../../types/batchPlan'
 import type { GradeSpecRow, MaterialOption, MaterialStdRow, PlannedLine } from '../../types/batchPlan'
 import { computeExpectedComposition } from '../../lib/compositionCalc'
 import { ExpectedCompositionPanel } from './ExpectedCompositionPanel'
@@ -8,7 +8,6 @@ import { BilingualText } from '../ui/BilingualText'
 import { useLanguage } from '../../context/LanguageContext'
 
 interface BatchPlanFormProps {
-  furnaces: FurnaceOption[]
   gradeCodes: string[]
   materials: MaterialOption[]
   materialStd: MaterialStdRow[]
@@ -16,7 +15,6 @@ interface BatchPlanFormProps {
   initialPlan?: BatchPlan | null
   disabled?: boolean
   onSubmit: (values: {
-    furnace_code: string
     grade_code: string
     plan_date: string
     planned_lines: PlannedLine[]
@@ -30,7 +28,6 @@ function todayIsoDate() {
 }
 
 export function BatchPlanForm({
-  furnaces,
   gradeCodes,
   materials,
   materialStd,
@@ -42,7 +39,6 @@ export function BatchPlanForm({
 }: BatchPlanFormProps) {
   const { t } = useLanguage()
   const [step, setStep] = useState(initialPlan ? 1 : 0)
-  const [furnaceCode, setFurnaceCode] = useState(initialPlan?.furnace_code ?? '')
   const [gradeCode, setGradeCode] = useState(initialPlan?.grade_code ?? '')
   const [planDate, setPlanDate] = useState(initialPlan?.plan_date ?? todayIsoDate())
   const [plannedLines, setPlannedLines] = useState<PlannedLine[]>(initialPlan?.planned_lines ?? [])
@@ -55,7 +51,7 @@ export function BatchPlanForm({
     gradeCode,
   )
 
-  const stepOneValid = Boolean(furnaceCode && gradeCode && planDate)
+  const stepOneValid = Boolean(gradeCode && planDate)
   const stepTwoValid = plannedLines.length > 0
 
   async function handleSave() {
@@ -63,7 +59,6 @@ export function BatchPlanForm({
     setSubmitting(true)
     try {
       await onSubmit({
-        furnace_code: furnaceCode,
         grade_code: gradeCode,
         plan_date: planDate,
         planned_lines: plannedLines,
@@ -94,23 +89,7 @@ export function BatchPlanForm({
 
       {step === 0 && (
         <div className="space-y-4">
-          <div className="space-y-4 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0">
-            <label className="block space-y-2">
-              <BilingualText as="span" en="Furnace *" hi="फर्नेस" className="font-semibold" />
-              <select
-                value={furnaceCode}
-                disabled={disabled}
-                onChange={(e) => setFurnaceCode(e.target.value)}
-                className="w-full min-h-14 rounded-xl border border-slate-600 bg-slate-800 px-4 text-lg"
-              >
-                <option value="">{t('Select furnace', 'फर्नेस चुनें')}</option>
-                {furnaces.map((f) => (
-                  <option key={f.code} value={f.code}>
-                    {f.code} — {f.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
             <label className="block space-y-2">
               <BilingualText as="span" en="Grade *" hi="ग्रेड" className="font-semibold" />
               <select

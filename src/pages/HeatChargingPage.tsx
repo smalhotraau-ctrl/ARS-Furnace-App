@@ -30,6 +30,7 @@ import {
   fetchTempReadings,
   finishCycleStage,
   getHeatPendingCount,
+  getHeatSyncErrors,
   loadLocalChargeLines,
   loadLocalCycleLog,
   loadLocalHeats,
@@ -72,6 +73,7 @@ export function HeatChargingPage() {
   const [savedVisible, setSavedVisible] = useState(false)
   const [loading, setLoading] = useState(true)
   const [pendingUploads, setPendingUploads] = useState(getHeatPendingCount())
+  const [syncErrors, setSyncErrors] = useState(getHeatSyncErrors())
 
   const canStartAndCharge = role === 'supervisor'
   const canViewCharging = role === 'supervisor' || role === 'qa' || role === 'plant_head' || role === 'admin_owner'
@@ -85,6 +87,10 @@ export function HeatChargingPage() {
     () => batchPlans.find((p) => p.id === selectedHeat?.batch_plan_id) ?? null,
     [batchPlans, selectedHeat],
   )
+  const linkedPlanIds = useMemo(
+    () => new Set(heats.map((h) => h.batch_plan_id).filter((id): id is string => Boolean(id))),
+    [heats],
+  )
 
   const variance = useMemo(
     () => computePlanVariance(linkedPlan, chargeLines),
@@ -94,6 +100,8 @@ export function HeatChargingPage() {
   const refreshData = useCallback(async () => {
     try {
       if (navigator.onLine) await syncHeatQueue()
+      setPendingUploads(getHeatPendingCount())
+      setSyncErrors(getHeatSyncErrors())
       const [nextHeats, nextFurnaces, nextMaterials, nextGradeCodes, nextPlans] = await Promise.all([
         navigator.onLine ? fetchHeats() : Promise.resolve(loadLocalHeats()),
         fetchMainFurnacesForHeat().catch(() => []),
@@ -116,9 +124,11 @@ export function HeatChargingPage() {
         setPendingCorrections(corrections.filter((r) => r.status === 'pending'))
       }
       setPendingUploads(getHeatPendingCount())
+      setSyncErrors(getHeatSyncErrors())
     } catch {
       setHeats(loadLocalHeats())
       setPendingUploads(getHeatPendingCount())
+      setSyncErrors(getHeatSyncErrors())
     } finally {
       setLoading(false)
     }
@@ -181,6 +191,12 @@ export function HeatChargingPage() {
     window.setTimeout(() => setSavedVisible(false), 2200)
   }
 
+  async function flushSyncState() {
+    await syncHeatQueue()
+    setPendingUploads(getHeatPendingCount())
+    setSyncErrors(getHeatSyncErrors())
+  }
+
   if (!canViewCharging) return null
 
   const activeSelected = Boolean(selectedHeat && isActiveHeat(selectedHeat.status))
@@ -193,6 +209,20 @@ export function HeatChargingPage() {
         <p className="rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-2 text-sm text-amber-200">
           {t(`${pendingUploads} entries pending upload`, `${pendingUploads} प्रविष्टियाँ अपलोड बाकी`)}
         </p>
+      )}
+
+      {syncErrors.length > 0 && (
+        <div className="rounded-xl border border-red-500/40 bg-red-950/30 px-4 py-3 text-sm text-red-200">
+          <p className="font-semibold">{t('Some entries failed to save', 'कुछ प्रविष्टियाँ सहेजी नहीं गईं')}</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {syncErrors.slice(0, 3).map((err) => (
+              <li key={`${err.at}-${err.action}`}>{err.message}</li>
+            ))}
+          </ul>
+          {syncErrors.length > 3 && (
+            <p className="mt-2 text-red-300">{t(`+ ${syncErrors.length - 3} more`, `+ ${syncErrors.length - 3} और`)}</p>
+          )}
+        </div>
       )}
 
       {loading && <p className="text-center text-slate-400">{t('Loading…', 'लोड हो रहा है…')}</p>}
@@ -231,12 +261,14 @@ export function HeatChargingPage() {
         <StartHeatForm
           furnaces={furnaces}
           batchPlans={batchPlans}
+          linkedPlanIds={linkedPlanIds}
           gradeCodes={gradeCodes}
           onStart={async (values) => {
             const result = await startHeat(user!, values, heats)
             if (result.error) return { error: result.error }
             setHeats((prev) => [result.heat, ...prev])
             setSelectedHeat(result.heat)
+            await flushSyncState()
             showSaved()
             return {}
           }}
@@ -264,11 +296,13 @@ export function HeatChargingPage() {
                 onStart={async (stage) => {
                   const entry = await startCycleStage(user!, selectedHeat.id, stage)
                   setCycleEntries((prev) => [...prev, entry])
+                  await flushSyncState()
                   showSaved()
                 }}
                 onFinish={async (entry) => {
                   const updated = await finishCycleStage(entry)
                   setCycleEntries((prev) => prev.map((e) => (e.id === entry.id ? updated : e)))
+                  await flushSyncState()
                   showSaved()
                 }}
               />
@@ -278,6 +312,7 @@ export function HeatChargingPage() {
                   onSubmit={async (values) => {
                     const reading = await addTempReading(user!, { ...values, heat_id: selectedHeat.id })
                     setTempReadings((prev) => [reading, ...prev])
+                    await flushSyncState()
                     showSaved()
                   }}
                 />
@@ -298,6 +333,7 @@ export function HeatChargingPage() {
                     h.id === selectedHeat.id ? { ...h, status: h.status === 'Planned' ? 'Charging' : h.status } : h,
                   ),
                 )
+                await flushSyncState()
                 showSaved()
               }}
             />

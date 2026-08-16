@@ -143,7 +143,7 @@ export function mergeCachedBatchPlans(serverPlans: BatchPlan[]): BatchPlan[] {
 export function rowToBatchPlan(row: Record<string, unknown>): BatchPlan {
   return {
     id: String(row.id),
-    furnace_code: String(row.furnace_code),
+    furnace_code: row.furnace_code != null ? String(row.furnace_code) : null,
     grade_code: String(row.grade_code),
     plan_date: String(row.plan_date),
     planned_lines: parsePlannedLines(row.planned_lines),

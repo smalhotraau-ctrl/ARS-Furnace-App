@@ -4,13 +4,18 @@ import {
   addLocalChargeLine,
   addLocalCycleEntry,
   addLocalTempReading,
+  clearHeatSyncErrors,
   enqueueHeatAction,
   getCachedChargeLines,
   getCachedCycleLog,
   getCachedHeats,
   getCachedTempReadings,
+  getHeatIdAliases,
   getHeatQueue,
+  getHeatSyncErrors,
   removeHeatQueueAction,
+  repointHeatDependents,
+  resolveHeatId,
   rowToCancelRequest,
   rowToChargeLine,
   rowToCycleEntry,
@@ -21,6 +26,7 @@ import {
   setCachedCycleLog,
   setCachedHeats,
   setCachedTempReadings,
+  setHeatSyncErrors,
   updateLocalCycleEntry,
   updateLocalHeat,
   upsertLocalHeat,
@@ -53,6 +59,21 @@ import { parseExpectedComposition, parsePlannedLines } from '../types/batchPlan'
 
 const furnace = () => supabase.schema('furnace')
 
+function formatQueueSyncError(error: unknown): string {
+  if (!error || typeof error !== 'object') return 'Sync failed — try again.'
+  const e = error as { code?: string; message?: string }
+  if (e.code === '23503') {
+    return 'Could not save — the heat is still syncing to the server. Wait a moment, then reload.'
+  }
+  if (e.code === '42501') {
+    return 'Permission denied — your role cannot save this entry.'
+  }
+  if (e.message) return e.message
+  return 'Sync failed — try again.'
+}
+
+export { getHeatSyncErrors }
+
 export async function fetchHeats(): Promise<Heat[]> {
   const { data, error } = await furnace()
     .from('heats')
@@ -61,7 +82,12 @@ export async function fetchHeats(): Promise<Heat[]> {
 
   if (error) throw error
 
-  const serverHeats = (data ?? []).map((row) => rowToHeat(row as Record<string, unknown>))
+  const previousById = new Map(getCachedHeats().map((h) => [h.id, h]))
+  const serverHeats = (data ?? []).map((row) => {
+    const heat = rowToHeat(row as Record<string, unknown>)
+    const previousLocalId = previousById.get(heat.id)?._localId
+    return previousLocalId ? { ...heat, _localId: previousLocalId } : heat
+  })
   const localPending = getCachedHeats().filter((h) => h._pending)
   const merged = new Map<string, Heat>()
   for (const h of serverHeats) merged.set(h.id, h)
@@ -80,14 +106,17 @@ export async function fetchChargeLines(heatId?: string): Promise<ChargeLine[]> {
   if (error) throw error
 
   const serverLines = (data ?? []).map((row) => rowToChargeLine(row as Record<string, unknown>))
-  const localLines = getCachedChargeLines().filter((l) => l._pending && (!heatId || l.heat_id === heatId))
+  const heatAliases = heatId ? getHeatIdAliases(heatId) : null
+  const localLines = getCachedChargeLines().filter(
+    (l) => l._pending && (!heatId || heatAliases!.has(l.heat_id)),
+  )
   const merged = new Map<string, ChargeLine>()
   for (const l of serverLines) merged.set(l.id, l)
   for (const l of localLines) merged.set(l.id, l)
 
   const result = [...merged.values()]
   setCachedChargeLines(result)
-  return heatId ? result.filter((l) => l.heat_id === heatId) : result
+  return heatId ? result.filter((l) => getHeatIdAliases(heatId).has(l.heat_id)) : result
 }
 
 export async function fetchCycleLog(heatId?: string): Promise<CycleLogEntry[]> {
@@ -108,14 +137,16 @@ export async function fetchCycleLog(heatId?: string): Promise<CycleLogEntry[]> {
     const previousLocalId = previousById.get(entry.id)?._localId
     return previousLocalId ? { ...entry, _localId: previousLocalId } : entry
   })
-  const localEntries = getCachedCycleLog().filter((e) => e._pending && (!heatId || e.heat_id === heatId))
+  const localEntries = getCachedCycleLog().filter(
+    (e) => e._pending && (!heatId || getHeatIdAliases(heatId).has(e.heat_id)),
+  )
   const merged = new Map<string, CycleLogEntry>()
   for (const e of serverEntries) merged.set(e.id, e)
   for (const e of localEntries) merged.set(e.id, e)
 
   const result = [...merged.values()].sort((a, b) => a.start_ts.localeCompare(b.start_ts))
   setCachedCycleLog(result)
-  return heatId ? result.filter((e) => e.heat_id === heatId) : result
+  return heatId ? result.filter((e) => getHeatIdAliases(heatId).has(e.heat_id)) : result
 }
 
 export async function fetchTempReadings(heatId?: string): Promise<TempReading[]> {
@@ -126,14 +157,16 @@ export async function fetchTempReadings(heatId?: string): Promise<TempReading[]>
   if (error) throw error
 
   const serverReadings = (data ?? []).map((row) => rowToTempReading(row as Record<string, unknown>))
-  const localReadings = getCachedTempReadings().filter((r) => r._pending && (!heatId || r.heat_id === heatId))
+  const localReadings = getCachedTempReadings().filter(
+    (r) => r._pending && (!heatId || getHeatIdAliases(heatId).has(r.heat_id)),
+  )
   const merged = new Map<string, TempReading>()
   for (const r of serverReadings) merged.set(r.id, r)
   for (const r of localReadings) merged.set(r.id, r)
 
   const result = [...merged.values()]
   setCachedTempReadings(result)
-  return heatId ? result.filter((r) => r.heat_id === heatId) : result
+  return heatId ? result.filter((r) => getHeatIdAliases(heatId).has(r.heat_id)) : result
 }
 
 export async function fetchFurnaceWithLetter(code: string): Promise<{ code: string; heat_code_letter: string | null } | null> {
@@ -184,6 +217,10 @@ export async function startHeat(
   const active = getActiveHeatForFurnace(params.furnace_code, heats)
   if (active) {
     return { heat: active, error: 'An active heat already exists on this furnace.' }
+  }
+
+  if (params.batch_plan_id && heats.some((h) => h.batch_plan_id === params.batch_plan_id)) {
+    return { heat: {} as Heat, error: 'That batch plan is already linked to a heat.' }
   }
 
   const localId = crypto.randomUUID()
@@ -246,7 +283,14 @@ export async function addChargeLine(
 ): Promise<ChargeLine> {
   const now = new Date().toISOString()
   const localId = crypto.randomUUID()
-  const payload: ChargeLineInsert = { ...insert, added_at: now, created_by: user.id, idempotency_key: localId }
+  const heatId = resolveHeatId(insert.heat_id)
+  const payload: ChargeLineInsert = {
+    ...insert,
+    heat_id: heatId,
+    added_at: now,
+    created_by: user.id,
+    idempotency_key: localId,
+  }
 
   const line: ChargeLine = {
     id: localId,
@@ -259,7 +303,7 @@ export async function addChargeLine(
   addLocalChargeLine(line)
   enqueueHeatAction({ kind: 'charge_insert', localId, payload: payload as unknown as Record<string, unknown> })
 
-  const heat = getCachedHeats().find((h) => h.id === insert.heat_id || h._localId === insert.heat_id)
+  const heat = getCachedHeats().find((h) => h.id === heatId || h._localId === insert.heat_id)
   if (heat && heat.status === 'Planned') {
     updateLocalHeat(heat.id, { status: 'Charging', updated_at: now })
     enqueueHeatAction({
@@ -277,8 +321,9 @@ export async function addChargeLine(
 export async function startCycleStage(user: AppUser, heatId: string, stage: CycleStage): Promise<CycleLogEntry> {
   const now = new Date().toISOString()
   const localId = crypto.randomUUID()
+  const resolvedHeatId = resolveHeatId(heatId)
   const payload: CycleLogInsert = {
-    heat_id: heatId,
+    heat_id: resolvedHeatId,
     stage,
     start_ts: now,
     finish_ts: null,
@@ -330,7 +375,12 @@ export async function addTempReading(
 ): Promise<TempReading> {
   const now = new Date().toISOString()
   const localId = crypto.randomUUID()
-  const payload: TempReadingInsert = { ...insert, recorded_by: user.id, idempotency_key: localId }
+  const payload: TempReadingInsert = {
+    ...insert,
+    heat_id: resolveHeatId(insert.heat_id),
+    recorded_by: user.id,
+    idempotency_key: localId,
+  }
 
   const reading: TempReading = {
     id: localId,
@@ -488,7 +538,7 @@ export async function fetchBatchPlansForHeat(): Promise<BatchPlan[]> {
 
   return (data ?? []).map((row) => ({
     id: String(row.id),
-    furnace_code: String(row.furnace_code),
+    furnace_code: row.furnace_code != null ? String(row.furnace_code) : null,
     grade_code: String(row.grade_code),
     plan_date: String(row.plan_date),
     planned_lines: parsePlannedLines(row.planned_lines),
@@ -543,23 +593,150 @@ export function loadLocalHeats(): Heat[] {
 // Supervisor tapping Start again and creating a second, junk row for that stage.
 export function loadLocalCycleLog(heatId?: string): CycleLogEntry[] {
   const cached = getCachedCycleLog()
-  return heatId ? cached.filter((e) => e.heat_id === heatId) : cached
+  if (!heatId) return cached
+  const aliases = getHeatIdAliases(heatId)
+  return cached.filter((e) => aliases.has(e.heat_id))
 }
 
 export function loadLocalChargeLines(heatId?: string): ChargeLine[] {
   const cached = getCachedChargeLines()
-  return heatId ? cached.filter((l) => l.heat_id === heatId) : cached
+  if (!heatId) return cached
+  const aliases = getHeatIdAliases(heatId)
+  return cached.filter((l) => aliases.has(l.heat_id))
 }
 
 export function loadLocalTempReadings(heatId?: string): TempReading[] {
   const cached = getCachedTempReadings()
-  return heatId ? cached.filter((r) => r.heat_id === heatId) : cached
+  if (!heatId) return cached
+  const aliases = getHeatIdAliases(heatId)
+  return cached.filter((r) => aliases.has(r.heat_id))
 }
 
 async function assignRealHeatNo(localHeat: Heat): Promise<string | null> {
   const furnaceInfo = await fetchFurnaceWithLetter(localHeat.furnace_code)
   if (!furnaceInfo?.heat_code_letter) return null
   return generateNextHeatNo(localHeat.furnace_code, furnaceInfo.heat_code_letter, new Date(localHeat.created_at))
+}
+
+const ORPHAN_RECOVERY_FLAG = 'furnace:heat_id_orphan_recovery_v1'
+
+function isKnownHeatId(heatId: string): boolean {
+  return getCachedHeats().some((h) => h.id === heatId || h._localId === heatId)
+}
+
+function collectReferencedHeatIds(): Set<string> {
+  const ids = new Set<string>()
+  for (const action of getHeatQueue()) {
+    if (
+      action.kind === 'charge_insert' ||
+      action.kind === 'cycle_insert' ||
+      action.kind === 'temp_insert'
+    ) {
+      ids.add(String(action.payload.heat_id))
+    }
+    if (action.kind === 'heat_update') ids.add(action.heatId)
+  }
+  for (const line of getCachedChargeLines()) {
+    if (line._pending) ids.add(line.heat_id)
+  }
+  for (const entry of getCachedCycleLog()) {
+    if (entry._pending) ids.add(entry.heat_id)
+  }
+  for (const reading of getCachedTempReadings()) {
+    if (reading._pending) ids.add(reading.heat_id)
+  }
+  return ids
+}
+
+function listOrphanedHeatIds(): string[] {
+  return [...collectReferencedHeatIds()].filter(
+    (id) => !isKnownHeatId(id) && resolveHeatId(id) === id,
+  )
+}
+
+// One-time (per browser) recovery for charge/cycle/temp rows queued under a client-generated heat
+// id after the heat itself had already synced under a different server id. Matches orphans to the
+// real heat row via idempotency_key first, then via heat_no from a still-queued heat_insert.
+// Idempotent — safe to run on every sync flush; the localStorage flag marks browsers that have
+// been through the migration pass.
+export async function recoverOrphanedHeatReferences(): Promise<number> {
+  if (!navigator.onLine) return 0
+
+  let repointed = 0
+  let orphaned = listOrphanedHeatIds()
+  if (orphaned.length === 0) {
+    if (!localStorage.getItem(ORPHAN_RECOVERY_FLAG)) {
+      localStorage.setItem(ORPHAN_RECOVERY_FLAG, '1')
+    }
+    return 0
+  }
+
+  const { data: byKey, error: keyErr } = await furnace()
+    .from('heats')
+    .select('id, heat_no, idempotency_key')
+    .in('idempotency_key', orphaned)
+
+  if (!keyErr) {
+    for (const row of byKey ?? []) {
+      const fromId = String(row.idempotency_key)
+      const toId = String(row.id)
+      if (fromId === toId) continue
+
+      const heat = rowToHeat(row as Record<string, unknown>)
+      const cached = getCachedHeats().find((h) => h.id === toId)
+      if (cached) {
+        if (!cached._localId) updateLocalHeat(toId, { _localId: fromId })
+      } else {
+        upsertLocalHeat({ ...heat, _localId: fromId })
+      }
+      repointHeatDependents(fromId, toId)
+      repointed++
+    }
+  }
+
+  orphaned = listOrphanedHeatIds()
+  if (orphaned.length > 0) {
+    const localIdToHeatNo = new Map<string, string>()
+    for (const action of getHeatQueue()) {
+      if (action.kind === 'heat_insert') {
+        localIdToHeatNo.set(action.localId, action.payload.heat_no)
+      }
+    }
+
+    const heatNos = [
+      ...new Set(
+        orphaned.map((id) => localIdToHeatNo.get(id)).filter((no): no is string => Boolean(no)),
+      ),
+    ]
+
+    if (heatNos.length > 0) {
+      const { data: byHeatNo, error: heatNoErr } = await furnace()
+        .from('heats')
+        .select('id, heat_no')
+        .in('heat_no', heatNos)
+
+      if (!heatNoErr) {
+        const heatNoToId = new Map(
+          (byHeatNo ?? []).map((row) => [String(row.heat_no), String(row.id)]),
+        )
+
+        for (const orphanId of orphaned) {
+          const heatNo = localIdToHeatNo.get(orphanId)
+          if (!heatNo) continue
+          const toId = heatNoToId.get(heatNo)
+          if (!toId || toId === orphanId) continue
+
+          const cached = getCachedHeats().find((h) => h.id === toId)
+          if (cached && !cached._localId) updateLocalHeat(toId, { _localId: orphanId })
+          repointHeatDependents(orphanId, toId)
+          repointed++
+        }
+      }
+    }
+  }
+
+  localStorage.setItem(ORPHAN_RECOVERY_FLAG, '1')
+  return repointed
 }
 
 // Only one flush of furnace:heat_queue may run at a time. Without this, two triggers firing
@@ -582,7 +759,20 @@ export function syncHeatQueue(): Promise<number> {
 async function runHeatQueueSync(): Promise<number> {
   if (!navigator.onLine) return getHeatQueue().length
 
+  await recoverOrphanedHeatReferences()
+
   const queue = [...getHeatQueue()]
+  const syncErrors: Array<{ at: string; action: (typeof queue)[number]['kind']; message: string; code?: string }> = []
+
+  function recordSyncError(action: (typeof queue)[number], error: unknown) {
+    const e = error as { code?: string; message?: string }
+    syncErrors.push({
+      at: new Date().toISOString(),
+      action: action.kind,
+      message: formatQueueSyncError(error),
+      code: e.code,
+    })
+  }
 
   for (const action of queue) {
     if (action.kind === 'heat_insert') {
@@ -603,10 +793,19 @@ async function runHeatQueueSync(): Promise<number> {
       }
 
       const { row, error } = await insertIdempotent(furnace, 'heats', insertPayload as unknown as Record<string, unknown>)
-      if (error || !row) continue
+      if (error || !row) {
+        if (error) recordSyncError(action, error)
+        continue
+      }
 
       const synced = rowToHeat(row)
-      updateLocalHeat(action.localId, { ...synced, _localId: undefined, _pending: false, _emergency: false })
+      updateLocalHeat(action.localId, {
+        ...synced,
+        _localId: action.localId,
+        _pending: false,
+        _emergency: false,
+      })
+      repointHeatDependents(action.localId, synced.id)
       removeHeatQueueAction(action.queueId)
     }
 
@@ -618,14 +817,24 @@ async function runHeatQueueSync(): Promise<number> {
         if (cached?._pending) continue
       }
       const { error } = await furnace().from('heats').update(action.payload).eq('id', resolvedId)
-      if (error) continue
+      if (error) {
+        recordSyncError(action, error)
+        continue
+      }
       updateLocalHeat(heatId, { ...action.payload, _pending: false } as Partial<Heat>)
       removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'charge_insert') {
-      const { row, error } = await insertIdempotent(furnace, 'charge_lines', action.payload)
-      if (error || !row) continue
+      const payload = {
+        ...action.payload,
+        heat_id: resolveHeatId(String(action.payload.heat_id)),
+      }
+      const { row, error } = await insertIdempotent(furnace, 'charge_lines', payload)
+      if (error || !row) {
+        if (error) recordSyncError(action, error)
+        continue
+      }
       const synced = rowToChargeLine(row)
       setCachedChargeLines(
         getCachedChargeLines().map((l) =>
@@ -636,8 +845,15 @@ async function runHeatQueueSync(): Promise<number> {
     }
 
     if (action.kind === 'cycle_insert') {
-      const { row, error } = await insertIdempotent(furnace, 'cycle_log', action.payload)
-      if (error || !row) continue
+      const payload = {
+        ...action.payload,
+        heat_id: resolveHeatId(String(action.payload.heat_id)),
+      }
+      const { row, error } = await insertIdempotent(furnace, 'cycle_log', payload)
+      if (error || !row) {
+        if (error) recordSyncError(action, error)
+        continue
+      }
       const synced = rowToCycleEntry(row)
       // _localId is kept (not cleared) even though this entry is now synced, so a `cycle_finish`
       // action created before this insert synced — which only knows the entry by its old
@@ -667,14 +883,24 @@ async function runHeatQueueSync(): Promise<number> {
         .from('cycle_log')
         .update({ finish_ts: action.finish_ts })
         .eq('id', targetId)
-      if (error) continue
+      if (error) {
+        recordSyncError(action, error)
+        continue
+      }
       updateLocalCycleEntry(action.entryId, { finish_ts: action.finish_ts, _pending: false })
       removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'temp_insert') {
-      const { row, error } = await insertIdempotent(furnace, 'temp_readings', action.payload)
-      if (error || !row) continue
+      const payload = {
+        ...action.payload,
+        heat_id: resolveHeatId(String(action.payload.heat_id)),
+      }
+      const { row, error } = await insertIdempotent(furnace, 'temp_readings', payload)
+      if (error || !row) {
+        if (error) recordSyncError(action, error)
+        continue
+      }
       const synced = rowToTempReading(row)
       setCachedTempReadings(
         getCachedTempReadings().map((r) =>
@@ -686,28 +912,43 @@ async function runHeatQueueSync(): Promise<number> {
 
     if (action.kind === 'cancel_request') {
       const { row, error } = await insertIdempotent(furnace, 'heat_cancel_requests', action.payload)
-      if (error || !row) continue
+      if (error || !row) {
+        if (error) recordSyncError(action, error)
+        continue
+      }
       removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'cancel_decide') {
       const { error } = await furnace().from('heat_cancel_requests').update(action.payload).eq('id', action.requestId)
-      if (error) continue
+      if (error) {
+        recordSyncError(action, error)
+        continue
+      }
       removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'correction_request') {
       const { row, error } = await insertIdempotent(furnace, 'heat_no_corrections', action.payload)
-      if (error || !row) continue
+      if (error || !row) {
+        if (error) recordSyncError(action, error)
+        continue
+      }
       removeHeatQueueAction(action.queueId)
     }
 
     if (action.kind === 'correction_decide') {
       const { error } = await furnace().from('heat_no_corrections').update(action.payload).eq('id', action.requestId)
-      if (error) continue
+      if (error) {
+        recordSyncError(action, error)
+        continue
+      }
       removeHeatQueueAction(action.queueId)
     }
   }
+
+  if (syncErrors.length > 0) setHeatSyncErrors(syncErrors)
+  else clearHeatSyncErrors()
 
   setCachedHeats(getCachedHeats())
   return getHeatQueue().length

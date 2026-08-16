@@ -37,9 +37,7 @@ export function BatchPlanList({ plans, selectedId, onSelect }: BatchPlanListProp
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-lg font-bold text-slate-100">
-                      {plan.furnace_code} · {plan.grade_code}
-                    </p>
+                    <p className="text-lg font-bold text-slate-100">{plan.grade_code}</p>
                     <p className="text-sm text-slate-400">{plan.plan_date}</p>
                   </div>
                   <div className="text-right text-sm">
@@ -68,7 +66,6 @@ export function BatchPlanList({ plans, selectedId, onSelect }: BatchPlanListProp
 
       <DesktopTable
         columns={[
-          t('Furnace', 'फर्नेस'),
           t('Grade', 'ग्रेड'),
           t('Date', 'तारीख'),
           t('Status', 'स्थिति'),
@@ -85,8 +82,7 @@ export function BatchPlanList({ plans, selectedId, onSelect }: BatchPlanListProp
                 selected ? 'bg-emerald-950/40' : 'hover:bg-slate-800/40'
               }`}
             >
-              <DeskTd className="font-semibold text-slate-100">{plan.furnace_code}</DeskTd>
-              <DeskTd>{plan.grade_code}</DeskTd>
+              <DeskTd className="font-semibold text-slate-100">{plan.grade_code}</DeskTd>
               <DeskTd className="whitespace-nowrap text-slate-400">{plan.plan_date}</DeskTd>
               <DeskTd className="capitalize">
                 {plan.status}

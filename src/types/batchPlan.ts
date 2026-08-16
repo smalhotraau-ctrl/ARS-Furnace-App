@@ -11,7 +11,7 @@ export interface ExpectedCompositionEntry {
 
 export interface BatchPlan {
   id: string
-  furnace_code: string
+  furnace_code: string | null
   grade_code: string
   plan_date: string
   planned_lines: PlannedLine[]
@@ -30,7 +30,6 @@ export interface BatchPlan {
 }
 
 export interface BatchPlanInsert {
-  furnace_code: string
   grade_code: string
   plan_date: string
   planned_lines: PlannedLine[]
