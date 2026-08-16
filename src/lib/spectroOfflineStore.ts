@@ -1,4 +1,4 @@
-import type { SpectroReport, SpectroReportInsert } from '../types/spectro'
+import type { CorrectionSuggestion, SpectroReport, SpectroReportInsert } from '../types/spectro'
 import { parseCorrectionSuggested, parseSpectroComposition } from '../types/spectro'
 
 const CACHE_KEY = 'furnace:spectro_reports'
@@ -9,6 +9,15 @@ export interface PendingSpectroInsert {
   localId: string
   payload: SpectroReportInsert
 }
+
+export interface PendingSpectroCorrectionUpdate {
+  kind: 'update_correction'
+  queueId: string
+  reportId: string
+  correction: CorrectionSuggestion[]
+}
+
+export type SpectroQueueAction = PendingSpectroInsert | PendingSpectroCorrectionUpdate
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -36,14 +45,15 @@ export function setCachedSpectroReports(reports: SpectroReport[]) {
 // `localId` already serves as this queue's queueId. It was still missing the idempotency_key
 // needed for server-side ON CONFLICT DO NOTHING protection against a concurrent double-flush —
 // backfilled here for whatever's already sitting in a user's browser.
-function migrateLegacyQueueEntry(action: PendingSpectroInsert): PendingSpectroInsert {
+function migrateLegacyQueueEntry(action: SpectroQueueAction): SpectroQueueAction {
+  if (action.kind !== 'insert') return action
   const payload = action.payload as SpectroReportInsert & { idempotency_key?: string }
   if (payload.idempotency_key) return action
   return { ...action, payload: { ...payload, idempotency_key: crypto.randomUUID() } }
 }
 
-export function getSpectroQueue(): PendingSpectroInsert[] {
-  const raw = readJson<PendingSpectroInsert[]>(QUEUE_KEY, [])
+export function getSpectroQueue(): SpectroQueueAction[] {
+  const raw = readJson<SpectroQueueAction[]>(QUEUE_KEY, [])
   let changed = false
   const migrated = raw.map((action) => {
     const fixed = migrateLegacyQueueEntry(action)
@@ -54,7 +64,7 @@ export function getSpectroQueue(): PendingSpectroInsert[] {
   return migrated
 }
 
-export function setSpectroQueue(actions: PendingSpectroInsert[]) {
+export function setSpectroQueue(actions: SpectroQueueAction[]) {
   writeJson(QUEUE_KEY, actions)
 }
 
@@ -62,8 +72,24 @@ export function enqueueSpectroAction(action: PendingSpectroInsert) {
   setSpectroQueue([...getSpectroQueue(), action])
 }
 
+export function enqueueSpectroCorrectionUpdate(reportId: string, correction: CorrectionSuggestion[]) {
+  const pending = getSpectroQueue().filter(
+    (action) => !(action.kind === 'update_correction' && action.reportId === reportId),
+  )
+  setSpectroQueue([
+    ...pending,
+    { kind: 'update_correction', queueId: crypto.randomUUID(), reportId, correction },
+  ])
+}
+
 export function removeSpectroPending(localId: string) {
-  setSpectroQueue(getSpectroQueue().filter((a) => a.localId !== localId))
+  setSpectroQueue(getSpectroQueue().filter((a) => !(a.kind === 'insert' && a.localId === localId)))
+}
+
+export function removeSpectroCorrectionUpdate(reportId: string) {
+  setSpectroQueue(
+    getSpectroQueue().filter((a) => !(a.kind === 'update_correction' && a.reportId === reportId)),
+  )
 }
 
 export function addLocalSpectroReport(report: SpectroReport) {

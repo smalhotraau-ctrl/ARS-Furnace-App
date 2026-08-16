@@ -47,7 +47,8 @@ export function SpectroPage() {
   const [pendingCorrection, setPendingCorrection] = useState<CorrectionSuggestion[] | null>(null)
   const [savedVisible, setSavedVisible] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [computing, setComputing] = useState(false)
+  const [computingDraft, setComputingDraft] = useState(false)
+  const [computingReportId, setComputingReportId] = useState<string | null>(null)
   const [pendingUploads, setPendingUploads] = useState(getSpectroPendingCount())
 
   const meltKg = useMemo(() => totalChargedKg(chargeLines), [chargeLines])
@@ -116,6 +117,26 @@ export function SpectroPage() {
     window.setTimeout(() => setSavedVisible(false), 2200)
   }
 
+  const draftOutOfSpec = liveComposition.some((e) => e.flag === 'out_of_spec')
+
+  async function computeCorrectionForReport(report: SpectroReport) {
+    setComputingReportId(report.id)
+    try {
+      const suggestions = computeCorrectionSuggestion(
+        report.composition,
+        chargeLines,
+        materialStd,
+        activeMaterialCodes,
+      )
+      const updated = await updateReportCorrection(report, suggestions)
+      setReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
+      setSelectedReport(updated)
+      showSaved()
+    } finally {
+      setComputingReportId(null)
+    }
+  }
+
   const handleCompositionChange = useCallback((composition: SpectroCompositionEntry[]) => {
     setLiveComposition(composition)
     setPendingCorrection(null)
@@ -177,10 +198,14 @@ export function SpectroPage() {
               <CorrectionSuggestionPanel
                 suggestions={pendingCorrection}
                 meltKg={meltKg}
-                loading={computing}
-                disabled={liveComposition.length === 0}
+                loading={computingDraft}
+                disabled={!draftOutOfSpec}
+                contextNote={t(
+                  'Applies to the new report form above (not saved reports)',
+                  'ऊपर के नए रिपोर्ट फॉर्म पर लागू (सहेजी रिपोर्ट नहीं)',
+                )}
                 onRequest={() => {
-                  setComputing(true)
+                  setComputingDraft(true)
                   const suggestions = computeCorrectionSuggestion(
                     liveComposition,
                     chargeLines,
@@ -188,7 +213,7 @@ export function SpectroPage() {
                     activeMaterialCodes,
                   )
                   setPendingCorrection(suggestions)
-                  setComputing(false)
+                  setComputingDraft(false)
                 }}
               />
             </>
@@ -203,32 +228,13 @@ export function SpectroPage() {
             />
           </div>
 
-          <SpectroReportDetail report={selectedReport} />
-
-          {canEnter && selectedReport && !selectedReport.correction_suggested && (
-            <CorrectionSuggestionPanel
-              suggestions={null}
-              meltKg={meltKg}
-              loading={computing}
-              onRequest={async () => {
-                setComputing(true)
-                const suggestions = computeCorrectionSuggestion(
-                  selectedReport.composition,
-                  chargeLines,
-                  materialStd,
-                  activeMaterialCodes,
-                )
-                await updateReportCorrection(selectedReport, suggestions)
-                setReports((prev) =>
-                  prev.map((r) =>
-                    r.id === selectedReport.id ? { ...r, correction_suggested: suggestions } : r,
-                  ),
-                )
-                setSelectedReport({ ...selectedReport, correction_suggested: suggestions })
-                setComputing(false)
-              }}
-            />
-          )}
+          <SpectroReportDetail
+            report={selectedReport}
+            canComputeCorrection={canEnter}
+            meltKg={meltKg}
+            computingCorrection={selectedReport != null && computingReportId === selectedReport.id}
+            onComputeCorrection={computeCorrectionForReport}
+          />
         </>
       )}
 

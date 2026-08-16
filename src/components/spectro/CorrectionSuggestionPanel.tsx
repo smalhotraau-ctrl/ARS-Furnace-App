@@ -8,6 +8,7 @@ interface CorrectionSuggestionPanelProps {
   onRequest: () => void
   loading?: boolean
   disabled?: boolean
+  contextNote?: string
 }
 
 export function CorrectionSuggestionPanel({
@@ -16,6 +17,7 @@ export function CorrectionSuggestionPanel({
   onRequest,
   loading = false,
   disabled = false,
+  contextNote,
 }: CorrectionSuggestionPanelProps) {
   const { t } = useLanguage()
 
@@ -33,6 +35,7 @@ export function CorrectionSuggestionPanel({
           'कुल चार्ज नेट किग्रा पर आधारित अनुमान — सटीक पिघला वजन नहीं',
         )}
       </p>
+      {contextNote && <p className="text-sm text-slate-500">{contextNote}</p>}
       <p className="text-sm text-slate-500">
         {t('Melt estimate', 'पिघला अनुमान')}: {meltKg.toFixed(1)} kg
       </p>

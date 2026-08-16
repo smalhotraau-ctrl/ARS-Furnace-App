@@ -5,8 +5,10 @@ import { createInFlightLock, insertIdempotent } from './offlineQueueSync'
 import {
   addLocalSpectroReport,
   enqueueSpectroAction,
+  enqueueSpectroCorrectionUpdate,
   getCachedSpectroReports,
   getSpectroQueue,
+  removeSpectroCorrectionUpdate,
   removeSpectroPending,
   rowToSpectroReport,
   setCachedSpectroReports,
@@ -74,16 +76,32 @@ export async function updateReportCorrection(
   report: SpectroReport,
   correction: CorrectionSuggestion[],
 ): Promise<SpectroReport> {
-  const updated = { ...report, correction_suggested: correction, _pending: true }
+  const updated: SpectroReport = { ...report, correction_suggested: correction, _pending: true }
   updateLocalSpectroReport(report.id, updated)
 
   const queue = getSpectroQueue()
-  const insertAction = queue.find((a) => a.localId === report._localId)
-  if (insertAction) {
+  const insertAction = queue.find((a) => a.kind === 'insert' && a.localId === report._localId)
+  if (insertAction && insertAction.kind === 'insert') {
     insertAction.payload.correction_suggested = correction
     setSpectroQueue([...queue])
+    void syncSpectroQueue()
+    return updated
   }
 
+  if (navigator.onLine) {
+    const { error } = await furnace()
+      .from('spectro_reports')
+      .update({ correction_suggested: correction })
+      .eq('id', report.id)
+    if (!error) {
+      removeSpectroCorrectionUpdate(report.id)
+      const synced = { ...updated, _pending: false }
+      updateLocalSpectroReport(report.id, synced)
+      return synced
+    }
+  }
+
+  enqueueSpectroCorrectionUpdate(report.id, correction)
   void syncSpectroQueue()
   return updated
 }
@@ -110,6 +128,20 @@ async function runSpectroQueueSync(): Promise<number> {
       const synced = rowToSpectroReport(row)
       removeSpectroPending(action.localId)
       updateLocalSpectroReport(action.localId, { ...synced, _localId: undefined, _pending: false })
+    }
+
+    if (action.kind === 'update_correction') {
+      const { error } = await furnace()
+        .from('spectro_reports')
+        .update({ correction_suggested: action.correction })
+        .eq('id', action.reportId)
+      if (error) continue
+
+      removeSpectroCorrectionUpdate(action.reportId)
+      updateLocalSpectroReport(action.reportId, {
+        correction_suggested: action.correction,
+        _pending: false,
+      })
     }
   }
 
