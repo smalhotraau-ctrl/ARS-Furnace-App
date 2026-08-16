@@ -42,6 +42,34 @@ export async function fetchYieldStandards(): Promise<MaterialYieldStandardRow[]>
   }))
 }
 
+export async function fetchHeatOutputsSince(sinceIso: string): Promise<HeatOutput[]> {
+  if (navigator.onLine) {
+    const { data, error } = await furnace()
+      .from('heat_output')
+      .select('*')
+      .gte('recorded_at', sinceIso)
+      .order('recorded_at', { ascending: false })
+
+    if (error) throw error
+
+    const serverOutputs = (data ?? []).map((row) => rowToHeatOutput(row as Record<string, unknown>))
+    const localPending = getCachedHeatOutputs().filter((o) => o._pending && o.recorded_at >= sinceIso)
+    const merged = new Map<string, HeatOutput>()
+    for (const o of serverOutputs) merged.set(o.id, o)
+    for (const o of localPending) merged.set(o.id, o)
+
+    const result = [...merged.values()].sort((a, b) => b.recorded_at.localeCompare(a.recorded_at))
+    const cached = new Map(getCachedHeatOutputs().map((o) => [o.id, o]))
+    for (const o of result) cached.set(o.id, o)
+    setCachedHeatOutputs([...cached.values()])
+    return result
+  }
+
+  return getCachedHeatOutputs()
+    .filter((o) => o.recorded_at >= sinceIso)
+    .sort((a, b) => b.recorded_at.localeCompare(a.recorded_at))
+}
+
 export async function fetchHeatOutput(heatId: string): Promise<HeatOutput | null> {
   if (navigator.onLine) {
     const { data, error } = await furnace().from('heat_output').select('*').eq('heat_id', heatId).maybeSingle()

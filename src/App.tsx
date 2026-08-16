@@ -6,6 +6,7 @@ import { RoleNav, type AppScreen } from './components/RoleNav'
 import { BatchPlanPage } from './pages/BatchPlanPage'
 import { BundlingPage } from './pages/BundlingPage'
 import { CostingPage } from './pages/CostingPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { DispatchPage } from './pages/DispatchPage'
 import { HeatChargingPage } from './pages/HeatChargingPage'
 import { LoginScreen } from './pages/LoginScreen'
@@ -16,13 +17,15 @@ import { SpectroPage } from './pages/SpectroPage'
 
 function AppShell() {
   const { user, loading } = useAuth()
-  const [activeScreen, setActiveScreen] = useState<AppScreen>('batch')
+  const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard')
 
   if (loading) return null
   if (!user) return <LoginScreen />
 
   function renderScreen() {
     switch (activeScreen) {
+      case 'dashboard':
+        return <DashboardPage />
       case 'batch':
         return <BatchPlanPage />
       case 'heat':

@@ -8,6 +8,7 @@ import { LanguageToggle } from './ui/LanguageToggle'
 import { ThemeToggle } from './ui/ThemeToggle'
 
 export type AppScreen =
+  | 'dashboard'
   | 'batch'
   | 'heat'
   | 'spectro'
@@ -33,6 +34,7 @@ interface RoleNavProps {
 }
 
 const NAV_ICONS: Record<AppScreen, string> = {
+  dashboard: '🏠',
   batch: '📋',
   heat: '🔥',
   spectro: '🔬',
@@ -46,6 +48,7 @@ const NAV_ICONS: Record<AppScreen, string> = {
 
 const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   supervisor: [
+    { id: 'dashboard', en: 'Dashboard', hi: 'डैशबोर्ड', icon: NAV_ICONS.dashboard },
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना', icon: NAV_ICONS.batch },
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल', icon: NAV_ICONS.heat },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो', icon: NAV_ICONS.spectro },
@@ -55,6 +58,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट', icon: NAV_ICONS.pit },
   ],
   qa: [
+    { id: 'dashboard', en: 'Dashboard', hi: 'डैशबोर्ड', icon: NAV_ICONS.dashboard },
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना', icon: NAV_ICONS.batch },
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल', icon: NAV_ICONS.heat },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो', icon: NAV_ICONS.spectro },
@@ -64,6 +68,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'pit', en: 'Pit Furnace', hi: 'पिट', icon: NAV_ICONS.pit },
   ],
   plant_head: [
+    { id: 'dashboard', en: 'Dashboard', hi: 'डैशबोर्ड', icon: NAV_ICONS.dashboard },
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना', icon: NAV_ICONS.batch },
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल', icon: NAV_ICONS.heat },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो', icon: NAV_ICONS.spectro },
@@ -75,6 +80,7 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { id: 'costing', en: 'Costing', hi: 'कॉस्टिंग', icon: NAV_ICONS.costing },
   ],
   admin_owner: [
+    { id: 'dashboard', en: 'Dashboard', hi: 'डैशबोर्ड', icon: NAV_ICONS.dashboard },
     { id: 'batch', en: 'Batch Plan', hi: 'बैच योजना', icon: NAV_ICONS.batch },
     { id: 'heat', en: 'Heat & Cycle', hi: 'हीट व साइकिल', icon: NAV_ICONS.heat },
     { id: 'spectro', en: 'Spectro', hi: 'स्पेक्ट्रो', icon: NAV_ICONS.spectro },

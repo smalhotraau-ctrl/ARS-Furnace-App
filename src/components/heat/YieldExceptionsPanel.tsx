@@ -9,12 +9,13 @@ interface YieldExceptionsPanelProps {
   flags: HeatOutputFlag[]
   heats: Heat[]
   onAcknowledge: (flag: HeatOutputFlag, note: string | null) => Promise<void>
+  variant?: 'default' | 'hero'
 }
 
 // Visible exclusively to Plant Head / Owner — Supervisor and QA never see this panel, per
 // 03f §4 / 03b. Global across every heat, not scoped to the currently selected one, so an
 // open/unacknowledged count is impossible to miss.
-export function YieldExceptionsPanel({ flags, heats, onAcknowledge }: YieldExceptionsPanelProps) {
+export function YieldExceptionsPanel({ flags, heats, onAcknowledge, variant = 'default' }: YieldExceptionsPanelProps) {
   const { t } = useLanguage()
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -32,11 +33,28 @@ export function YieldExceptionsPanel({ flags, heats, onAcknowledge }: YieldExcep
     }
   }
 
+  const hero = variant === 'hero'
+
   return (
-    <section className="space-y-3 rounded-2xl border-2 border-amber-500 bg-amber-950/30 p-5">
-      <div className="flex items-center justify-between">
-        <BilingualText as="h2" en="Yield Exceptions" hi="यील्ड अपवाद" className="text-lg font-bold text-amber-200" />
-        <span className="inline-flex items-center rounded-full bg-amber-500 px-3 py-1 text-sm font-extrabold text-on-accent">
+    <section
+      className={`space-y-3 ${
+        hero
+          ? 'rounded-3xl border-4 border-amber-400 bg-gradient-to-br from-amber-950/90 to-orange-950/70 p-6 shadow-2xl shadow-amber-500/30'
+          : 'rounded-2xl border-2 border-amber-500 bg-amber-950/30 p-5'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <BilingualText
+          as="h2"
+          en="Yield Exceptions"
+          hi="यील्ड अपवाद"
+          className={hero ? 'text-2xl font-extrabold text-amber-100 sm:text-3xl' : 'text-lg font-bold text-amber-200'}
+        />
+        <span
+          className={`inline-flex items-center rounded-full bg-amber-500 font-extrabold text-on-accent ${
+            hero ? 'px-4 py-2 text-lg' : 'px-3 py-1 text-sm'
+          } ${flags.length > 0 && hero ? 'animate-pulse' : ''}`}
+        >
           {flags.length} {t('open', 'खुला')}
         </span>
       </div>
