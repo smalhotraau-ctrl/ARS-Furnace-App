@@ -5,11 +5,13 @@ import { BilingualText } from '../components/ui/BilingualText'
 import { PlantDashboard } from '../components/dashboard/PlantDashboard'
 import { QADashboard } from '../components/dashboard/QADashboard'
 import { SupervisorDashboard } from '../components/dashboard/SupervisorDashboard'
-import { fetchBatchPlans, loadLocalBatchPlans } from '../lib/batchPlanService'
 import { startOfTodayIso } from '../lib/dashboardService'
 import { fetchDispatches, loadLocalDispatches } from '../lib/dispatchService'
 import {
+  collectPlanVarianceFlags,
+  fetchBatchPlansForHeat,
   fetchCancelRequests,
+  fetchChargeLines,
   fetchHeatNoCorrections,
   fetchHeats,
   fetchMainFurnacesForHeat,
@@ -25,6 +27,7 @@ import { fetchPitHeats, loadLocalPitHeats } from '../lib/pitFurnaceService'
 import { isCompositionOutOfSpec } from '../lib/spectroCalc'
 import { fetchHeatsForSpectro, fetchSpectroReports } from '../lib/spectroService'
 import { fetchUserChangeRequests } from '../lib/userManagementService'
+import type { PlanVarianceFlag } from '../lib/heatService'
 import type { BatchPlan, FurnaceOption } from '../types/batchPlan'
 import type { Dispatch } from '../types/dispatch'
 import type { Heat, HeatCancelRequest, HeatNoCorrection } from '../types/heat'
@@ -51,11 +54,12 @@ export function DashboardPage() {
   const [yieldFlags, setYieldFlags] = useState<HeatOutputFlag[]>([])
   const [todaysOutputs, setTodaysOutputs] = useState<HeatOutput[]>([])
   const [dispatches, setDispatches] = useState<Dispatch[]>(() => loadLocalDispatches())
-  const [batchPlans, setBatchPlans] = useState<BatchPlan[]>(() => loadLocalBatchPlans())
+  const [batchPlans, setBatchPlans] = useState<BatchPlan[]>([])
   const [cancelRequests, setCancelRequests] = useState<HeatCancelRequest[]>([])
   const [heatNoCorrections, setHeatNoCorrections] = useState<HeatNoCorrection[]>([])
   const [changeRequests, setChangeRequests] = useState<MasterAdminChangeRequest[]>([])
   const [userChangeRequests, setUserChangeRequests] = useState<UserChangeRequest[]>([])
+  const [planVarianceFlags, setPlanVarianceFlags] = useState<PlanVarianceFlag[]>([])
 
   const refresh = useCallback(async () => {
     setError(null)
@@ -96,6 +100,7 @@ export function DashboardPage() {
         nextChanges,
         nextBatchPlans,
         nextUserChanges,
+        nextChargeLines,
       ] = await Promise.all([
         navigator.onLine ? fetchHeats() : Promise.resolve(loadLocalHeats()),
         fetchOpenYieldFlags(),
@@ -104,12 +109,9 @@ export function DashboardPage() {
         fetchCancelRequests().catch(() => []),
         fetchHeatNoCorrections().catch(() => []),
         fetchChangeRequests().catch(() => []),
-        isOwner
-          ? navigator.onLine
-            ? fetchBatchPlans()
-            : Promise.resolve(loadLocalBatchPlans())
-          : Promise.resolve([]),
+        navigator.onLine ? fetchBatchPlansForHeat() : Promise.resolve([]),
         isOwner ? fetchUserChangeRequests().catch(() => []) : Promise.resolve([]),
+        navigator.onLine ? fetchChargeLines().catch(() => []) : Promise.resolve([]),
       ])
 
       setHeats(nextHeats)
@@ -121,6 +123,7 @@ export function DashboardPage() {
       setChangeRequests(nextChanges)
       setBatchPlans(nextBatchPlans)
       setUserChangeRequests(nextUserChanges)
+      setPlanVarianceFlags(collectPlanVarianceFlags(nextHeats, nextBatchPlans, nextChargeLines))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -189,6 +192,7 @@ export function DashboardPage() {
           role={role}
           heats={heats}
           yieldFlags={yieldFlags}
+          planVarianceFlags={planVarianceFlags}
           todaysOutputs={todaysOutputs}
           dispatchShortages={dispatchShortages}
           batchPlansAwaitingReview={batchPlansAwaitingReview}

@@ -8,6 +8,7 @@ import { BundleList } from '../components/bundling/BundleList'
 import { HeatDetailHeader } from '../components/heat/HeatDetailHeader'
 import { HeatList } from '../components/heat/HeatList'
 import { fetchHeats, loadLocalHeats, syncHeatQueue } from '../lib/heatService'
+import { floorWorkerPageClass } from '../lib/pageLayout'
 import {
   fetchBundles,
   getDispatchPendingCount,
@@ -83,7 +84,7 @@ export function BundlingPage() {
   const closedHeats = heats.filter((h) => h.status === 'Closed')
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className={floorWorkerPageClass(role)}>
       <BilingualText as="h1" en="Bundling" hi="बंडलिंग" className="text-3xl font-bold text-slate-100" />
       <p className="text-sm text-slate-400">
         {t(

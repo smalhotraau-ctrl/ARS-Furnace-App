@@ -10,6 +10,7 @@ import { OutputEntryForm } from '../components/heat/OutputEntryForm'
 import { RecoveryBreakdownCard } from '../components/heat/RecoveryBreakdownCard'
 import { VerifyOutputPanel } from '../components/heat/VerifyOutputPanel'
 import { YieldExceptionsPanel } from '../components/heat/YieldExceptionsPanel'
+import { floorWorkerPageClass } from '../lib/pageLayout'
 import { computeChargedNetKg } from '../lib/outputCalc'
 import { fetchChargeLines, fetchHeats, loadLocalHeats, syncHeatQueue } from '../lib/heatService'
 import {
@@ -116,7 +117,7 @@ export function OutputPage() {
   if (!canViewScreen) return null
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className={floorWorkerPageClass(role)}>
       <BilingualText as="h1" en="Heat Output & Close" hi="हीट आउटपुट व समापन" className="text-3xl font-bold" />
 
       {showPendingIndicator && pendingUploads > 0 && (

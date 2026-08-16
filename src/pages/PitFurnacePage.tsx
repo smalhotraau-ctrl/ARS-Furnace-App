@@ -17,6 +17,7 @@ import {
 import { computeBalanceFromHeats, type PitHeat } from '../types/pitFurnace'
 import { BilingualText } from '../components/ui/BilingualText'
 import { useLanguage } from '../context/LanguageContext'
+import { floorWorkerPageClass } from '../lib/pageLayout'
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10)
@@ -78,7 +79,7 @@ export function PitFurnacePage() {
   const showPendingIndicator = role === 'plant_head' || role === 'admin_owner'
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className={floorWorkerPageClass(role)}>
       <header className="space-y-2">
         <BilingualText
           as="h1"

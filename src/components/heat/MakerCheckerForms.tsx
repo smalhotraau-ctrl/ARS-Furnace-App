@@ -32,60 +32,117 @@ export function MakerCheckerForms({
   const [cancelReason, setCancelReason] = useState('')
   const [correctionNo, setCorrectionNo] = useState('')
   const [correctionReason, setCorrectionReason] = useState('')
+  const [showCancelForm, setShowCancelForm] = useState(false)
+  const [showCorrectionForm, setShowCorrectionForm] = useState(false)
 
   return (
     <div className="space-y-4">
       {canRequestCancel && heat && isActive(heat) && (
         <section className="rounded-2xl border border-slate-700 bg-slate-800/60 p-5 space-y-3">
-          <BilingualText as="h3" en="Request Heat Cancellation" hi="हीट रद्द करने का अनुरोध" className="font-bold" />
-          <textarea
-            value={cancelReason}
-            onChange={(e) => setCancelReason(e.target.value)}
-            rows={3}
-            className="w-full rounded-xl border border-slate-600 bg-slate-900 px-4 py-3"
-            placeholder={t('Reason', 'कारण')}
-          />
-          <button
-            type="button"
-            disabled={!cancelReason.trim()}
-            onClick={() => void onCancelRequest(cancelReason).then(() => setCancelReason(''))}
-            className="min-h-12 w-full rounded-xl bg-red-600/80 font-semibold disabled:opacity-50"
-          >
-            {t('Submit cancel request', 'अनुरोध भेजें')}
-          </button>
+          {!showCancelForm ? (
+            <button
+              type="button"
+              onClick={() => setShowCancelForm(true)}
+              className="min-h-11 text-sm font-semibold text-red-300 underline decoration-red-400/60 underline-offset-4"
+            >
+              {t('Request cancellation', 'रद्दीकरण का अनुरोध')}
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <BilingualText as="h3" en="Request Heat Cancellation" hi="हीट रद्द करने का अनुरोध" className="font-bold" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCancelForm(false)
+                    setCancelReason('')
+                  }}
+                  className="text-sm text-slate-400 underline"
+                >
+                  {t('Close', 'बंद')}
+                </button>
+              </div>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-slate-600 bg-slate-900 px-4 py-3"
+                placeholder={t('Reason', 'कारण')}
+              />
+              <button
+                type="button"
+                disabled={!cancelReason.trim()}
+                onClick={() =>
+                  void onCancelRequest(cancelReason).then(() => {
+                    setCancelReason('')
+                    setShowCancelForm(false)
+                  })
+                }
+                className="min-h-12 w-full rounded-xl bg-red-600/80 font-semibold disabled:opacity-50"
+              >
+                {t('Submit cancel request', 'अनुरोध भेजें')}
+              </button>
+            </>
+          )}
         </section>
       )}
 
       {canRequestCorrection && heat && (
         <section className="rounded-2xl border border-slate-700 bg-slate-800/60 p-5 space-y-3">
-          <BilingualText as="h3" en="Request Heat Number Correction" hi="हीट नंबर सुधार अनुरोध" className="font-bold" />
-          <p className="text-sm text-slate-400">Current: {heat.heat_no}</p>
-          <input
-            value={correctionNo}
-            onChange={(e) => setCorrectionNo(e.target.value)}
-            placeholder={t('Requested heat no', 'अनुरोधित नंबर')}
-            className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-900 px-4"
-          />
-          <textarea
-            value={correctionReason}
-            onChange={(e) => setCorrectionReason(e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-slate-600 bg-slate-900 px-4 py-3"
-            placeholder={t('Reason', 'कारण')}
-          />
-          <button
-            type="button"
-            disabled={!correctionNo.trim() || !correctionReason.trim()}
-            onClick={() =>
-              void onCorrectionRequest(correctionNo, correctionReason).then(() => {
-                setCorrectionNo('')
-                setCorrectionReason('')
-              })
-            }
-            className="min-h-12 w-full rounded-xl border border-amber-500/40 bg-amber-950/30 font-semibold disabled:opacity-50"
-          >
-            {t('Submit correction request', 'सुधार अनुरोध')}
-          </button>
+          {!showCorrectionForm ? (
+            <button
+              type="button"
+              onClick={() => setShowCorrectionForm(true)}
+              className="min-h-11 text-sm font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-4"
+            >
+              {t('Request heat number correction', 'हीट नंबर सुधार का अनुरोध')}
+            </button>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <BilingualText as="h3" en="Request Heat Number Correction" hi="हीट नंबर सुधार अनुरोध" className="font-bold" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCorrectionForm(false)
+                    setCorrectionNo('')
+                    setCorrectionReason('')
+                  }}
+                  className="text-sm text-slate-400 underline"
+                >
+                  {t('Close', 'बंद')}
+                </button>
+              </div>
+              <p className="text-sm text-slate-400">Current: {heat.heat_no}</p>
+              <input
+                value={correctionNo}
+                onChange={(e) => setCorrectionNo(e.target.value)}
+                placeholder={t('Requested heat no', 'अनुरोधित नंबर')}
+                className="w-full min-h-12 rounded-xl border border-slate-600 bg-slate-900 px-4"
+              />
+              <textarea
+                value={correctionReason}
+                onChange={(e) => setCorrectionReason(e.target.value)}
+                rows={2}
+                className="w-full rounded-xl border border-slate-600 bg-slate-900 px-4 py-3"
+                placeholder={t('Reason', 'कारण')}
+              />
+              <button
+                type="button"
+                disabled={!correctionNo.trim() || !correctionReason.trim()}
+                onClick={() =>
+                  void onCorrectionRequest(correctionNo, correctionReason).then(() => {
+                    setCorrectionNo('')
+                    setCorrectionReason('')
+                    setShowCorrectionForm(false)
+                  })
+                }
+                className="min-h-12 w-full rounded-xl border border-amber-500/40 bg-amber-950/30 font-semibold disabled:opacity-50"
+              >
+                {t('Submit correction request', 'सुधार अनुरोध')}
+              </button>
+            </>
+          )}
         </section>
       )}
 

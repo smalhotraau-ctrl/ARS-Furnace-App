@@ -7,15 +7,17 @@ interface HeatListProps {
   heats: Heat[]
   selectedId: string | null
   onSelect: (heat: Heat) => void
+  emptyLabelEn?: string
+  emptyLabelHi?: string
 }
 
-export function HeatList({ heats, selectedId, onSelect }: HeatListProps) {
+export function HeatList({ heats, selectedId, onSelect, emptyLabelEn, emptyLabelHi }: HeatListProps) {
   const { t } = useLanguage()
 
   if (heats.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-600 p-6 text-center text-slate-400">
-        <p>{t('No heats yet', 'अभी कोई हीट नहीं')}</p>
+        <p>{t(emptyLabelEn ?? 'No heats yet', emptyLabelHi ?? 'अभी कोई हीट नहीं')}</p>
       </div>
     )
   }

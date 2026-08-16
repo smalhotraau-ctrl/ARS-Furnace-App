@@ -49,6 +49,7 @@ import type {
   HeatCancelRequest,
   HeatInsert,
   HeatNoCorrection,
+  HeatStatus,
   TempReading,
   TempReadingInsert,
 } from '../types/heat'
@@ -56,8 +57,137 @@ import { isActiveHeat } from '../types/heat'
 import type { BatchPlan } from '../types/batchPlan'
 import type { FurnaceOption, MaterialOption } from '../types/batchPlan'
 import { parseExpectedComposition, parsePlannedLines } from '../types/batchPlan'
+import {
+  deriveHeatStatus,
+  heatStatusForCycleStage,
+  shouldAdvanceHeatStatus,
+} from './heatStatus'
 
 const furnace = () => supabase.schema('furnace')
+
+function mergeFetchedHeats(serverHeats: Heat[], localPending: Heat[]): Heat[] {
+  const merged = new Map<string, Heat>()
+  const byHeatNo = new Map<string, Heat>()
+
+  for (const heat of serverHeats) {
+    merged.set(heat.id, heat)
+    byHeatNo.set(heat.heat_no, heat)
+  }
+
+  for (const local of localPending) {
+    const serverMatch =
+      byHeatNo.get(local.heat_no) ??
+      merged.get(local.id) ??
+      (local._localId ? merged.get(local._localId) : undefined) ??
+      [...merged.values()].find((h) => h._localId === local.id || h._localId === local._localId)
+
+    if (serverMatch) {
+      merged.set(serverMatch.id, {
+        ...serverMatch,
+        ...local,
+        id: serverMatch.id,
+        _localId: local._localId ?? serverMatch._localId,
+      })
+      continue
+    }
+    merged.set(local.id, local)
+  }
+
+  const dedupedByHeatNo = new Map<string, Heat>()
+  for (const heat of merged.values()) {
+    const existing = dedupedByHeatNo.get(heat.heat_no)
+    if (!existing) {
+      dedupedByHeatNo.set(heat.heat_no, heat)
+      continue
+    }
+    if (existing._pending && !heat._pending) {
+      dedupedByHeatNo.set(heat.heat_no, heat)
+    } else if (!existing._pending && heat._pending) {
+      continue
+    } else if ((heat.updated_at ?? heat.created_at) > (existing.updated_at ?? existing.created_at)) {
+      dedupedByHeatNo.set(heat.heat_no, heat)
+    }
+  }
+
+  return [...dedupedByHeatNo.values()].sort((a, b) => b.created_at.localeCompare(a.created_at))
+}
+
+async function reconcileStaleHeatStatuses(heats: Heat[]): Promise<Heat[]> {
+  if (!navigator.onLine) return heats
+
+  const candidates = heats.filter((h) => isActiveHeat(h.status) && h.status !== 'Output Entered')
+  if (candidates.length === 0) return heats
+
+  const ids = candidates.map((h) => h.id)
+  const [{ data: cycleRows, error: cycleErr }, { data: chargeRows, error: chargeErr }] =
+    await Promise.all([
+      furnace().from('cycle_log').select('heat_id, stage').in('heat_id', ids),
+      furnace().from('charge_lines').select('heat_id').in('heat_id', ids),
+    ])
+
+  if (cycleErr || chargeErr) return heats
+
+  const cyclesByHeat = new Map<string, CycleLogEntry[]>()
+  for (const row of cycleRows ?? []) {
+    const heatId = String(row.heat_id)
+    const entry = rowToCycleEntry(row as Record<string, unknown>)
+    const list = cyclesByHeat.get(heatId) ?? []
+    list.push(entry)
+    cyclesByHeat.set(heatId, list)
+  }
+
+  const heatsWithCharges = new Set((chargeRows ?? []).map((row) => String(row.heat_id)))
+  const now = new Date().toISOString()
+  const patched = new Map<string, HeatStatus>()
+
+  for (const heat of candidates) {
+    const derived = deriveHeatStatus(
+      heat.status,
+      cyclesByHeat.get(heat.id) ?? [],
+      heatsWithCharges.has(heat.id),
+    )
+    if (shouldAdvanceHeatStatus(heat.status, derived)) {
+      patched.set(heat.id, derived)
+      updateLocalHeat(heat.id, { status: derived, updated_at: now })
+      enqueueHeatAction({
+        kind: 'heat_update',
+        heatId: heat.id,
+        localId: heat._localId,
+        payload: { status: derived, updated_at: now },
+      })
+    }
+  }
+
+  if (patched.size > 0) {
+    void syncHeatQueue()
+  }
+
+  return heats.map((heat) => {
+    const status = patched.get(heat.id)
+    return status ? { ...heat, status, updated_at: now } : heat
+  })
+}
+
+function advanceHeatStatusFromStage(user: AppUser, heatId: string, stage: CycleStage): void {
+  const heat = getCachedHeats().find((h) => h.id === heatId || h._localId === heatId)
+  if (!heat) return
+
+  const target = heatStatusForCycleStage(stage)
+  if (!shouldAdvanceHeatStatus(heat.status, target)) return
+
+  const now = new Date().toISOString()
+  updateLocalHeat(heat.id, { status: target, updated_at: now, updated_by: user.id })
+  enqueueHeatAction({
+    kind: 'heat_update',
+    heatId: heat.id,
+    localId: heat._localId,
+    payload: { status: target, updated_at: now, updated_by: user.id },
+  })
+}
+
+function advanceHeatStatusToCharging(user: AppUser, heatId: string): void {
+  advanceHeatStatusFromStage(user, heatId, 'charging')
+}
 
 function formatQueueSyncError(error: unknown): string {
   if (!error || typeof error !== 'object') return 'Sync failed — try again.'
@@ -89,11 +219,8 @@ export async function fetchHeats(): Promise<Heat[]> {
     return previousLocalId ? { ...heat, _localId: previousLocalId } : heat
   })
   const localPending = getCachedHeats().filter((h) => h._pending)
-  const merged = new Map<string, Heat>()
-  for (const h of serverHeats) merged.set(h.id, h)
-  for (const h of localPending) merged.set(h.id, h)
-
-  const result = [...merged.values()].sort((a, b) => b.created_at.localeCompare(a.created_at))
+  let result = mergeFetchedHeats(serverHeats, localPending)
+  result = await reconcileStaleHeatStatuses(result)
   setCachedHeats(result)
   return result
 }
@@ -303,16 +430,7 @@ export async function addChargeLine(
   addLocalChargeLine(line)
   enqueueHeatAction({ kind: 'charge_insert', localId, payload: payload as unknown as Record<string, unknown> })
 
-  const heat = getCachedHeats().find((h) => h.id === heatId || h._localId === insert.heat_id)
-  if (heat && heat.status === 'Planned') {
-    updateLocalHeat(heat.id, { status: 'Charging', updated_at: now })
-    enqueueHeatAction({
-      kind: 'heat_update',
-      heatId: heat.id,
-      localId: heat._localId,
-      payload: { status: 'Charging', updated_at: now, updated_by: user.id },
-    })
-  }
+  advanceHeatStatusToCharging(user, heatId)
 
   if (navigator.onLine) void syncHeatQueue()
   return line
@@ -341,6 +459,7 @@ export async function startCycleStage(user: AppUser, heatId: string, stage: Cycl
 
   addLocalCycleEntry(entry)
   enqueueHeatAction({ kind: 'cycle_insert', localId, payload: payload as unknown as Record<string, unknown> })
+  advanceHeatStatusFromStage(user, heatId, stage)
   if (navigator.onLine) void syncHeatQueue()
   return entry
 }
@@ -569,17 +688,73 @@ export function computePlanVariance(
     )
   }
 
-  return batchPlan.planned_lines.map((planned) => {
+  const plannedMaterials = new Set(batchPlan.planned_lines.map((p) => p.material_code))
+  const rows = batchPlan.planned_lines.map((planned) => {
     const actual_kg = actualByMaterial.get(planned.material_code) ?? 0
     const tolerance = planned.planned_kg * 0.05
-    const inSpec = Math.abs(actual_kg - planned.planned_kg) <= tolerance || planned.planned_kg === 0
+    const inSpec =
+      planned.planned_kg === 0
+        ? actual_kg === 0
+        : Math.abs(actual_kg - planned.planned_kg) <= tolerance
     return {
       material_code: planned.material_code,
       planned_kg: planned.planned_kg,
       actual_kg,
-      flag: inSpec ? 'in_spec' as const : 'out_of_spec' as const,
+      flag: inSpec ? ('in_spec' as const) : ('out_of_spec' as const),
     }
   })
+
+  for (const [material_code, actual_kg] of actualByMaterial) {
+    if (!plannedMaterials.has(material_code) && actual_kg > 0) {
+      rows.push({
+        material_code,
+        planned_kg: 0,
+        actual_kg,
+        flag: 'out_of_spec',
+      })
+    }
+  }
+
+  return rows
+}
+
+export type PlanVarianceFlag = {
+  heat_id: string
+  heat_no: string
+  material_code: string
+  planned_kg: number
+  actual_kg: number
+}
+
+export function collectPlanVarianceFlags(
+  heats: Heat[],
+  batchPlans: BatchPlan[],
+  chargeLines: ChargeLine[],
+): PlanVarianceFlag[] {
+  const planById = new Map(batchPlans.map((p) => [p.id, p]))
+  const flags: PlanVarianceFlag[] = []
+
+  for (const heat of heats) {
+    if (!isActiveHeat(heat.status) || !heat.batch_plan_id) continue
+    const plan = planById.get(heat.batch_plan_id)
+    if (!plan) continue
+
+    const aliases = getHeatIdAliases(heat.id)
+    const lines = chargeLines.filter((l) => aliases.has(l.heat_id))
+    for (const row of computePlanVariance(plan, lines)) {
+      if (row.flag === 'out_of_spec') {
+        flags.push({
+          heat_id: heat.id,
+          heat_no: heat.heat_no,
+          material_code: row.material_code,
+          planned_kg: row.planned_kg,
+          actual_kg: row.actual_kg,
+        })
+      }
+    }
+  }
+
+  return flags
 }
 
 export function loadLocalHeats(): Heat[] {

@@ -24,7 +24,7 @@ export function PlanVariancePanel({ variance }: PlanVariancePanelProps) {
         className="text-lg font-bold text-slate-100"
       />
       <p className="mt-1 text-sm text-slate-400">
-        {t('Advisory only', 'केवल सलाह')}
+        {t('Within ±5% of plan is OK', 'योजना के ±5% के भीतर ठीक है')}
       </p>
       <ul className="mt-4 space-y-2">
         {variance.map((row) => {

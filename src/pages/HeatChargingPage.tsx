@@ -41,8 +41,9 @@ import {
   submitHeatNoCorrection,
   syncHeatQueue,
 } from '../lib/heatService'
-import type { BatchPlan } from '../types/batchPlan'
-import type { FurnaceOption, MaterialOption } from '../types/batchPlan'
+import { floorWorkerPageClass } from '../lib/pageLayout'
+import { heatStatusForCycleStage, shouldAdvanceHeatStatus } from '../lib/heatStatus'
+import type { BatchPlan, FurnaceOption, MaterialOption } from '../types/batchPlan'
 import type { ChargeLine, CycleLogEntry, Heat, TempReading } from '../types/heat'
 import { isActiveHeat } from '../types/heat'
 
@@ -70,6 +71,7 @@ export function HeatChargingPage() {
   const [pendingCorrections, setPendingCorrections] = useState<
     Array<{ id: string; heat_id: string; original_heat_no: string; requested_heat_no: string; reason: string }>
   >([])
+  const [showHistory, setShowHistory] = useState(false)
   const [savedVisible, setSavedVisible] = useState(false)
   const [loading, setLoading] = useState(true)
   const [pendingUploads, setPendingUploads] = useState(getHeatPendingCount())
@@ -151,6 +153,19 @@ export function HeatChargingPage() {
   }, [refreshData])
 
   useEffect(() => {
+    if (!selectedHeat) return
+    const updated = heats.find((h) => h.id === selectedHeat.id)
+    if (
+      updated &&
+      (updated.status !== selectedHeat.status ||
+        updated.heat_no !== selectedHeat.heat_no ||
+        updated.updated_at !== selectedHeat.updated_at)
+    ) {
+      setSelectedHeat(updated)
+    }
+  }, [heats, selectedHeat])
+
+  useEffect(() => {
     async function loadHeatDetail() {
       if (!selectedHeat) {
         setChargeLines([])
@@ -201,8 +216,12 @@ export function HeatChargingPage() {
 
   const activeSelected = Boolean(selectedHeat && isActiveHeat(selectedHeat.status))
 
+  const activeHeats = heats.filter((h) => isActiveHeat(h.status))
+  const historyHeats = heats.filter((h) => h.status === 'Closed' || h.status === 'Cancelled')
+  const listHeats = showHistory ? historyHeats : activeHeats
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className={floorWorkerPageClass(role)}>
       <BilingualText as="h1" en="Heat Charging & Cycle Log" hi="हीट चार्जिंग व साइकिल लॉग" className="text-3xl font-bold" />
 
       {showPendingIndicator && pendingUploads > 0 && (
@@ -276,11 +295,24 @@ export function HeatChargingPage() {
       )}
 
       <div>
-        <BilingualText as="h2" en="Heats" hi="हीट्स" className="mb-3 text-lg font-semibold" />
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <BilingualText as="h2" en="Heats" hi="हीट्स" className="text-lg font-semibold" />
+          <button
+            type="button"
+            onClick={() => setShowHistory((prev) => !prev)}
+            className="min-h-10 rounded-xl border border-slate-600 px-3 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+          >
+            {showHistory
+              ? t('Show active heats', 'सक्रिय हीट दिखाएँ')
+              : t('View history', 'इतिहास देखें')}
+          </button>
+        </div>
         <HeatList
-          heats={heats.filter((h) => isActiveHeat(h.status) || h.status === 'Closed')}
+          heats={listHeats}
           selectedId={selectedHeat?.id ?? null}
           onSelect={setSelectedHeat}
+          emptyLabelEn={showHistory ? 'No closed or cancelled heats' : 'No active heats'}
+          emptyLabelHi={showHistory ? 'कोई बंद या रद्द हीट नहीं' : 'कोई सक्रिय हीट नहीं'}
         />
       </div>
 
@@ -295,7 +327,18 @@ export function HeatChargingPage() {
                 disabled={!canStartAndCharge}
                 onStart={async (stage) => {
                   const entry = await startCycleStage(user!, selectedHeat.id, stage)
+                  const nextStatus = heatStatusForCycleStage(stage)
                   setCycleEntries((prev) => [...prev, entry])
+                  setHeats((prev) =>
+                    prev.map((h) => {
+                      if (h.id !== selectedHeat.id) return h
+                      return shouldAdvanceHeatStatus(h.status, nextStatus) ? { ...h, status: nextStatus } : h
+                    }),
+                  )
+                  setSelectedHeat((prev) => {
+                    if (!prev) return null
+                    return shouldAdvanceHeatStatus(prev.status, nextStatus) ? { ...prev, status: nextStatus } : prev
+                  })
                   await flushSyncState()
                   showSaved()
                 }}
@@ -332,6 +375,9 @@ export function HeatChargingPage() {
                   prev.map((h) =>
                     h.id === selectedHeat.id ? { ...h, status: h.status === 'Planned' ? 'Charging' : h.status } : h,
                   ),
+                )
+                setSelectedHeat((prev) =>
+                  prev && prev.status === 'Planned' ? { ...prev, status: 'Charging' } : prev,
                 )
                 await flushSyncState()
                 showSaved()

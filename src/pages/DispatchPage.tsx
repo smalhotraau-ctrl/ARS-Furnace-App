@@ -7,6 +7,7 @@ import { DispatchForm } from '../components/dispatch/DispatchForm'
 import { DispatchList } from '../components/dispatch/DispatchList'
 import { DispatchRecordedBanner } from '../components/dispatch/DispatchRecordedBanner'
 import type { HeatStockOption } from '../components/dispatch/DispatchLineEditor'
+import { floorWorkerPageClass } from '../lib/pageLayout'
 import { fetchHeats, loadLocalHeats, syncHeatQueue } from '../lib/heatService'
 import {
   fetchDispatchLines,
@@ -108,7 +109,7 @@ export function DispatchPage() {
   }, [lines])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className={floorWorkerPageClass(role)}>
       <BilingualText as="h1" en="Dispatch" hi="डिस्पैच" className="text-3xl font-bold text-slate-100" />
       <p className="text-sm text-slate-400">
         {t(

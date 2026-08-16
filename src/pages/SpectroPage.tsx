@@ -21,6 +21,7 @@ import {
   syncSpectroQueue,
   updateReportCorrection,
 } from '../lib/spectroService'
+import { floorWorkerPageClass } from '../lib/pageLayout'
 import type { GradeSpecRow, MaterialStdRow } from '../types/batchPlan'
 import type { ChargeLine, Heat } from '../types/heat'
 import type { CorrectionSuggestion, SpectroCompositionEntry, SpectroReport } from '../types/spectro'
@@ -145,7 +146,7 @@ export function SpectroPage() {
   if (!canView) return null
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className={floorWorkerPageClass(role)}>
       <BilingualText as="h1" en="Spectro" hi="स्पेक्ट्रो" className="text-3xl font-bold" />
 
       {showPendingIndicator && pendingUploads > 0 && (

@@ -7,6 +7,8 @@ import { MASTER_ADMIN_TABLE_LABELS } from '../../types/masterAdmin'
 import type { HeatOutput, HeatOutputFlag } from '../../types/output'
 import type { UserChangeRequest } from '../../types/userManagement'
 import { aggregateRecovery } from '../../lib/dashboardService'
+import type { PlanVarianceFlag } from '../../lib/heatService'
+import { PlanVarianceExceptionsPanel } from '../heat/PlanVarianceExceptionsPanel'
 import { YieldExceptionsPanel } from '../heat/YieldExceptionsPanel'
 import { HeatStatusBadge } from '../heat/HeatStatusBadge'
 import { BilingualText } from '../ui/BilingualText'
@@ -17,6 +19,7 @@ interface PlantDashboardProps {
   role: 'plant_head' | 'admin_owner'
   heats: Heat[]
   yieldFlags: HeatOutputFlag[]
+  planVarianceFlags: PlanVarianceFlag[]
   todaysOutputs: HeatOutput[]
   dispatchShortages: Dispatch[]
   batchPlansAwaitingReview: BatchPlan[]
@@ -35,6 +38,7 @@ export function PlantDashboard({
   role,
   heats,
   yieldFlags,
+  planVarianceFlags,
   todaysOutputs,
   dispatchShortages,
   batchPlansAwaitingReview,
@@ -71,6 +75,8 @@ export function PlantDashboard({
         heats={heats}
         onAcknowledge={onAcknowledgeYieldFlag}
       />
+
+      <PlanVarianceExceptionsPanel flags={planVarianceFlags} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard labelEn="Heats in progress" labelHi="प्रगति में हीट" value={activeHeats.length} tone="info" />
