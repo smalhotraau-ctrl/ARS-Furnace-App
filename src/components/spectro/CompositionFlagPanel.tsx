@@ -1,4 +1,5 @@
 import type { SpectroCompositionEntry } from '../../types/spectro'
+import { compositionEntryFlag } from '../../lib/spectroCalc'
 import { BilingualText } from '../ui/BilingualText'
 import { useLanguage } from '../../context/LanguageContext'
 
@@ -24,7 +25,7 @@ export function CompositionFlagPanel({ composition }: CompositionFlagPanelProps)
       </p>
       <ul className="mt-4 space-y-3">
         {composition.map((entry) => {
-          const inSpec = entry.flag === 'in_spec'
+          const inSpec = compositionEntryFlag(entry) === 'in_spec'
           return (
             <li
               key={entry.element}

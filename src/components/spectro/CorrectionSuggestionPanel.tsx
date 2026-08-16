@@ -9,6 +9,7 @@ interface CorrectionSuggestionPanelProps {
   loading?: boolean
   disabled?: boolean
   contextNote?: string
+  compositionOutOfSpec?: boolean
 }
 
 export function CorrectionSuggestionPanel({
@@ -18,6 +19,7 @@ export function CorrectionSuggestionPanel({
   loading = false,
   disabled = false,
   contextNote,
+  compositionOutOfSpec = false,
 }: CorrectionSuggestionPanelProps) {
   const { t } = useLanguage()
 
@@ -61,7 +63,19 @@ export function CorrectionSuggestionPanel({
       )}
 
       {suggestions && suggestions.length === 0 && (
-        <p className="text-sm text-emerald-400">{t('All elements within spec', 'सभी तत्व मानक के अंदर')}</p>
+        <p className={`text-sm ${compositionOutOfSpec ? 'text-amber-300' : 'text-emerald-400'}`}>
+          {compositionOutOfSpec
+            ? meltKg <= 0
+              ? t(
+                  'Out-of-spec elements found but no charged weight — add charge lines first',
+                  'मानक से बाहर तत्व हैं पर चार्ज वजन नहीं — पहले चार्ज पंक्तियाँ जोड़ें',
+                )
+              : t(
+                  'Out-of-spec elements found but no correction material available — check standard composition in Master Admin',
+                  'मानक से बाहर तत्व हैं पर कोई सुधार सामग्री नहीं — Master Admin में मानक संरचना जाँचें',
+                )
+            : t('All elements within spec', 'सभी तत्व मानक के अंदर')}
+        </p>
       )}
     </section>
   )

@@ -30,6 +30,29 @@ export function totalChargedKg(chargeLines: ChargeLine[]): number {
   return chargeLines.reduce((sum, line) => sum + line.net_kg, 0)
 }
 
+export function compositionEntryFlag(
+  entry: Pick<SpectroCompositionEntry, 'actual_pct' | 'spec_min' | 'spec_max'>,
+): SpecFlag {
+  return flagActualPct(entry.actual_pct, entry.spec_min, entry.spec_max)
+}
+
+export function isCompositionOutOfSpec(
+  entry: Pick<SpectroCompositionEntry, 'actual_pct' | 'spec_min' | 'spec_max'>,
+): boolean {
+  return compositionEntryFlag(entry) === 'out_of_spec'
+}
+
+export function refreshCompositionFlags(composition: SpectroCompositionEntry[]): SpectroCompositionEntry[] {
+  return composition.map((entry) => ({
+    ...entry,
+    flag: compositionEntryFlag(entry),
+  }))
+}
+
+function normalizeElement(element: string): string {
+  return element.trim().toUpperCase()
+}
+
 function stdRowsForElement(
   element: string,
   materialStd: MaterialStdRow[],
@@ -37,7 +60,7 @@ function stdRowsForElement(
 ): MaterialStdRow[] {
   return materialStd.filter(
     (row) =>
-      row.element === element &&
+      normalizeElement(row.element) === normalizeElement(element) &&
       row.std_pct > 0 &&
       (!activeMaterialCodes || activeMaterialCodes.has(row.material_code)),
   )
@@ -110,7 +133,7 @@ export function computeCorrectionSuggestion(
   const suggestions: CorrectionSuggestion[] = []
 
   for (const entry of composition) {
-    if (entry.flag === 'in_spec') continue
+    if (!isCompositionOutOfSpec(entry)) continue
 
     if (entry.actual_pct < entry.spec_min) {
       const targetPct = entry.spec_min

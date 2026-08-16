@@ -1,5 +1,6 @@
 import type { CorrectionSuggestion, SpectroReport, SpectroReportInsert } from '../types/spectro'
 import { parseCorrectionSuggested, parseSpectroComposition } from '../types/spectro'
+import { refreshCompositionFlags } from './spectroCalc'
 
 const CACHE_KEY = 'furnace:spectro_reports'
 const QUEUE_KEY = 'furnace:spectro_queue'
@@ -110,7 +111,7 @@ export function rowToSpectroReport(row: Record<string, unknown>): SpectroReport 
     id: String(row.id),
     heat_id: String(row.heat_id),
     report_type: row.report_type as SpectroReport['report_type'],
-    composition: parseSpectroComposition(row.composition),
+    composition: refreshCompositionFlags(parseSpectroComposition(row.composition)),
     sample_time: String(row.sample_time),
     correction_suggested: parseCorrectionSuggested(row.correction_suggested),
     recorded_by: String(row.recorded_by),

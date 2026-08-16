@@ -7,7 +7,7 @@ import { CorrectionSuggestionPanel } from '../components/spectro/CorrectionSugge
 import { SpectroReportDetail, SpectroReportList } from '../components/spectro/SpectroReportList'
 import { SavedConfirmation } from '../components/ui/SavedConfirmation'
 import { BilingualText } from '../components/ui/BilingualText'
-import { computeCorrectionSuggestion, totalChargedKg } from '../lib/spectroCalc'
+import { computeCorrectionSuggestion, isCompositionOutOfSpec, totalChargedKg } from '../lib/spectroCalc'
 import {
   fetchChargeLines,
   fetchGradeSpecs,
@@ -117,7 +117,7 @@ export function SpectroPage() {
     window.setTimeout(() => setSavedVisible(false), 2200)
   }
 
-  const draftOutOfSpec = liveComposition.some((e) => e.flag === 'out_of_spec')
+  const draftOutOfSpec = liveComposition.some((e) => isCompositionOutOfSpec(e))
 
   async function computeCorrectionForReport(report: SpectroReport) {
     setComputingReportId(report.id)
@@ -200,6 +200,7 @@ export function SpectroPage() {
                 meltKg={meltKg}
                 loading={computingDraft}
                 disabled={!draftOutOfSpec}
+                compositionOutOfSpec={draftOutOfSpec}
                 contextNote={t(
                   'Applies to the new report form above (not saved reports)',
                   'ऊपर के नए रिपोर्ट फॉर्म पर लागू (सहेजी रिपोर्ट नहीं)',

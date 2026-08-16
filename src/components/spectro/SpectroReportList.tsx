@@ -1,4 +1,5 @@
 import type { SpectroReport } from '../../types/spectro'
+import { isCompositionOutOfSpec } from '../../lib/spectroCalc'
 import { CompositionFlagPanel } from './CompositionFlagPanel'
 import { CorrectionSuggestionPanel } from './CorrectionSuggestionPanel'
 import { useLanguage } from '../../context/LanguageContext'
@@ -32,7 +33,7 @@ export function SpectroReportList({ reports, selectedId, onSelect }: SpectroRepo
     <ul className="space-y-3">
       {reports.map((report) => {
         const selected = selectedId === report.id
-        const outOfSpec = report.composition.some((e) => e.flag === 'out_of_spec')
+        const outOfSpec = report.composition.some((e) => isCompositionOutOfSpec(e))
         return (
           <li key={report.id}>
             <button
@@ -83,7 +84,7 @@ export function SpectroReportDetail({
 
   if (!report) return null
 
-  const outOfSpec = report.composition.some((e) => e.flag === 'out_of_spec')
+  const outOfSpec = report.composition.some((e) => isCompositionOutOfSpec(e))
 
   return (
     <section className="space-y-4 rounded-2xl border border-slate-700 bg-slate-800/60 p-5">
@@ -97,6 +98,7 @@ export function SpectroReportDetail({
           meltKg={meltKg}
           loading={computingCorrection}
           disabled={!outOfSpec}
+          compositionOutOfSpec={outOfSpec}
           contextNote={t(
             'Applies to this saved report',
             'इस सहेजी गई रिपोर्ट पर लागू',
