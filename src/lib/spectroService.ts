@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { fetchGradeSpecs } from './batchPlanService'
+import { fetchActiveMaterials, fetchGradeSpecs, fetchMaterialStdComposition } from './batchPlanService'
 import { fetchChargeLines, fetchHeats, loadLocalHeats } from './heatService'
 import { createInFlightLock, insertIdempotent } from './offlineQueueSync'
 import {
@@ -45,7 +45,7 @@ export async function fetchHeatsForSpectro(): Promise<Heat[]> {
   return navigator.onLine ? fetchHeats() : loadLocalHeats()
 }
 
-export { fetchGradeSpecs, fetchChargeLines }
+export { fetchGradeSpecs, fetchChargeLines, fetchMaterialStdComposition, fetchActiveMaterials }
 
 export async function saveSpectroReport(
   user: AppUser,

@@ -12,6 +12,8 @@ import {
   fetchChargeLines,
   fetchGradeSpecs,
   fetchHeatsForSpectro,
+  fetchMaterialStdComposition,
+  fetchActiveMaterials,
   fetchSpectroReports,
   getSpectroPendingCount,
   loadLocalSpectroReports,
@@ -19,7 +21,7 @@ import {
   syncSpectroQueue,
   updateReportCorrection,
 } from '../lib/spectroService'
-import type { GradeSpecRow } from '../types/batchPlan'
+import type { GradeSpecRow, MaterialStdRow } from '../types/batchPlan'
 import type { ChargeLine, Heat } from '../types/heat'
 import type { CorrectionSuggestion, SpectroCompositionEntry, SpectroReport } from '../types/spectro'
 import { isActiveHeat } from '../types/heat'
@@ -37,6 +39,8 @@ export function SpectroPage() {
   const [selectedHeat, setSelectedHeat] = useState<Heat | null>(null)
   const [chargeLines, setChargeLines] = useState<ChargeLine[]>([])
   const [gradeSpecs, setGradeSpecs] = useState<GradeSpecRow[]>([])
+  const [materialStd, setMaterialStd] = useState<MaterialStdRow[]>([])
+  const [activeMaterialCodes, setActiveMaterialCodes] = useState<Set<string>>(new Set())
   const [reports, setReports] = useState<SpectroReport[]>([])
   const [selectedReport, setSelectedReport] = useState<SpectroReport | null>(null)
   const [liveComposition, setLiveComposition] = useState<SpectroCompositionEntry[]>([])
@@ -51,12 +55,16 @@ export function SpectroPage() {
   const refreshData = useCallback(async () => {
     try {
       if (navigator.onLine) await syncSpectroQueue()
-      const [nextHeats, nextSpecs] = await Promise.all([
+      const [nextHeats, nextSpecs, nextMaterialStd, nextMaterials] = await Promise.all([
         fetchHeatsForSpectro(),
         fetchGradeSpecs().catch(() => [] as GradeSpecRow[]),
+        fetchMaterialStdComposition().catch(() => [] as MaterialStdRow[]),
+        fetchActiveMaterials().catch(() => []),
       ])
       setHeats(nextHeats.filter((h) => isActiveHeat(h.status)))
       setGradeSpecs(nextSpecs)
+      setMaterialStd(nextMaterialStd)
+      setActiveMaterialCodes(new Set(nextMaterials.map((m) => m.code)))
       setPendingUploads(getSpectroPendingCount())
     } catch {
       setHeats([])
@@ -173,7 +181,12 @@ export function SpectroPage() {
                 disabled={liveComposition.length === 0}
                 onRequest={() => {
                   setComputing(true)
-                  const suggestions = computeCorrectionSuggestion(liveComposition, chargeLines)
+                  const suggestions = computeCorrectionSuggestion(
+                    liveComposition,
+                    chargeLines,
+                    materialStd,
+                    activeMaterialCodes,
+                  )
                   setPendingCorrection(suggestions)
                   setComputing(false)
                 }}
@@ -199,7 +212,12 @@ export function SpectroPage() {
               loading={computing}
               onRequest={async () => {
                 setComputing(true)
-                const suggestions = computeCorrectionSuggestion(selectedReport.composition, chargeLines)
+                const suggestions = computeCorrectionSuggestion(
+                  selectedReport.composition,
+                  chargeLines,
+                  materialStd,
+                  activeMaterialCodes,
+                )
                 await updateReportCorrection(selectedReport, suggestions)
                 setReports((prev) =>
                   prev.map((r) =>
