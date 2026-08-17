@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { ChargeLineForm, ChargeLineList } from '../components/heat/ChargeLineForm'
 import { CycleStageGrid } from '../components/heat/CycleStageGrid'
 import { HeatDetailHeader } from '../components/heat/HeatDetailHeader'
+import { DownloadHeatSheetButton } from '../components/heat/DownloadHeatSheetButton'
 import { HeatList } from '../components/heat/HeatList'
 import { MakerCheckerForms } from '../components/heat/MakerCheckerForms'
 import { PlanVariancePanel } from '../components/heat/PlanVariancePanel'
@@ -318,7 +319,17 @@ export function HeatChargingPage() {
 
       {selectedHeat && (
         <>
-          <HeatDetailHeader heat={selectedHeat} />
+          <HeatDetailHeader
+            heat={selectedHeat}
+            action={
+              <DownloadHeatSheetButton
+                heat={selectedHeat}
+                chargeLines={chargeLines}
+                cycleEntries={cycleEntries}
+                tempReadings={tempReadings}
+              />
+            }
+          />
 
           {activeSelected && canViewCycle && (
             <>

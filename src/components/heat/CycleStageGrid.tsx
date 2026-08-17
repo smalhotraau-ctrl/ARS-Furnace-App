@@ -21,14 +21,46 @@ function formatDuration(ms: number): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
 }
 
+function formatTimeRange(startTs: string, finishTs: string | null): string {
+  const start = new Date(startTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (!finishTs) return `${start} – …`
+  const finish = new Date(finishTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return `${start} – ${finish}`
+}
+
+function StageStatusBadge({ isDone, isRunning }: { isDone: boolean; isRunning: boolean }) {
+  if (isDone) {
+    return (
+      <span
+        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold leading-none text-on-accent"
+        aria-hidden
+      >
+        ✓
+      </span>
+    )
+  }
+  if (isRunning) {
+    return (
+      <span
+        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400"
+        aria-hidden
+      />
+    )
+  }
+  return (
+    <span
+      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-teal-500/60 bg-teal-900/40"
+      aria-hidden
+    />
+  )
+}
+
 export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }: CycleStageGridProps) {
   const { t } = useLanguage()
   const [now, setNow] = useState(() => Date.now())
 
   const hasOpenEntry = entries.some((e) => !e.finish_ts)
 
-  // Only tick while something is actually running, so idle stages don't
-  // force a re-render every second.
   useEffect(() => {
     if (!hasOpenEntry) return
     const id = window.setInterval(() => setNow(Date.now()), 1000)
@@ -54,46 +86,47 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
         {CYCLE_STAGES.map((stage) => {
           const meta = CYCLE_STAGE_META[stage]
           const stageEntries = entries.filter((e) => e.stage === stage)
-          // The most recent occurrence of this stage decides what the card
-          // shows. Once it has a finish_ts, the card locks permanently —
-          // no button is ever rendered again for this stage.
           const latest = stageEntries[stageEntries.length - 1]
           const isRunning = Boolean(latest && !latest.finish_ts)
           const isDone = Boolean(latest?.finish_ts)
 
+          const cardTone = isDone
+            ? 'border-emerald-500/40 bg-emerald-950/30'
+            : isRunning
+              ? 'border-amber-500/50 bg-amber-950/20'
+              : 'border-teal-600/40 bg-teal-950/20'
+
           return (
             <div
               key={stage}
-              className={`flex flex-col items-center rounded-2xl border p-3 text-center ${
-                isDone
-                  ? 'border-emerald-500/40 bg-emerald-950/30'
-                  : isRunning
-                    ? 'border-amber-500/50 bg-amber-950/20'
-                    : 'border-slate-700 bg-slate-800/60'
-              }`}
+              className={`flex flex-col rounded-2xl border p-3 ${cardTone}`}
             >
-              <span className="text-3xl" aria-hidden>{meta.icon}</span>
-              <p className="mt-2 text-sm font-bold text-slate-100">{t(meta.en, meta.hi)}</p>
+              <div className="flex w-full items-center gap-2">
+                <span className="text-xl leading-none" aria-hidden>{meta.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-xs font-bold text-slate-100">{t(meta.en, meta.hi)}</p>
+                    <StageStatusBadge isDone={isDone} isRunning={isRunning} />
+                  </div>
+                </div>
+              </div>
 
               {isDone && latest ? (
-                <div className="mt-3 w-full space-y-1">
-                  <span
-                    className="save-toast-check mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-lg font-bold text-on-accent"
-                    aria-hidden
-                  >
-                    ✓
-                  </span>
-                  <p className="text-xs font-semibold text-emerald-300">
+                <div className="mt-3 w-full">
+                  <p className="text-2xl font-bold tabular-nums leading-tight text-emerald-200">
                     {formatDuration(new Date(latest.finish_ts!).getTime() - new Date(latest.start_ts).getTime())}
                   </p>
-                  <p className="text-[10px] text-slate-500">
-                    {new Date(latest.start_ts).toLocaleTimeString()} – {new Date(latest.finish_ts!).toLocaleTimeString()}
+                  <p className="mt-1 text-sm font-medium text-slate-300">
+                    {formatTimeRange(latest.start_ts, latest.finish_ts)}
                   </p>
                 </div>
               ) : isRunning && latest ? (
-                <>
-                  <p className="mt-2 text-xs font-semibold text-amber-300" aria-live="polite">
-                    {t('Running', 'चल रहा')}: {formatDuration(now - new Date(latest.start_ts).getTime())}
+                <div className="mt-3 w-full">
+                  <p className="text-2xl font-bold tabular-nums leading-tight text-amber-200" aria-live="polite">
+                    {formatDuration(now - new Date(latest.start_ts).getTime())}
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-300">
+                    {formatTimeRange(latest.start_ts, null)}
                   </p>
                   <button
                     type="button"
@@ -103,7 +136,7 @@ export function CycleStageGrid({ entries, disabled = false, onStart, onFinish }:
                   >
                     {t('Finish', 'समाप्त')}
                   </button>
-                </>
+                </div>
               ) : (
                 <button
                   type="button"
