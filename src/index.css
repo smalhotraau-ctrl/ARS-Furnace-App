@@ -81,34 +81,71 @@ html.light {
   --color-slate-900: #eef4fa;
   --color-slate-950: #ffffff;
 
+  /* Status-surface foregrounds: *-950 backgrounds flip to pastels above, so *-100/200
+     text must flip to readable dark hues (not Tailwind's default light tints). */
   --color-emerald-50: #022c22;
   --color-emerald-100: #064e3b;
   --color-emerald-200: #065f46;
   --color-emerald-300: #047857;
+  --color-emerald-400: #059669;
   --color-emerald-900: #a7f3d0;
   --color-emerald-950: #d1fae5;
 
+  --color-amber-50: #451a03;
+  --color-amber-100: #78350f;
   --color-amber-200: #92400e;
   --color-amber-300: #b45309;
+  --color-amber-400: #d97706;
   --color-amber-900: #fde68a;
   --color-amber-950: #fef3c7;
 
+  --color-rose-50: #4c0519;
+  --color-rose-100: #881337;
   --color-rose-200: #9f1239;
   --color-rose-300: #be123c;
+  --color-rose-400: #e11d48;
   --color-rose-900: #fecdd3;
   --color-rose-950: #ffe4e6;
 
-  --color-red-200: #9f1239;
-  --color-red-300: #be123c;
+  --color-red-50: #450a0a;
+  --color-red-100: #7f1d1d;
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
   --color-red-900: #fecaca;
   --color-red-950: #fee2e2;
 
+  --color-sky-50: #082f49;
+  --color-sky-100: #0c4a6e;
   --color-sky-200: #075985;
   --color-sky-300: #0369a1;
+  --color-sky-400: #0284c7;
+  --color-sky-900: #bae6fd;
   --color-sky-950: #e0f2fe;
 
+  --color-teal-50: #042f2e;
+  --color-teal-100: #134e4a;
+  --color-teal-200: #115e59;
+  --color-teal-300: #0f766e;
+  --color-teal-400: #0d9488;
+  --color-teal-600: #0d9488;
+  --color-teal-900: #99f6e4;
+  --color-teal-950: #ccfbf1;
+
+  --color-orange-50: #431407;
+  --color-orange-100: #7c2d12;
+  --color-orange-200: #9a3412;
+  --color-orange-300: #c2410c;
+  --color-orange-400: #ea580c;
+  --color-orange-900: #fed7aa;
+  --color-orange-950: #ffedd5;
+
+  --color-purple-50: #3b0764;
+  --color-purple-100: #581c87;
   --color-purple-200: #6b21a8;
   --color-purple-300: #7e22ce;
+  --color-purple-400: #9333ea;
+  --color-purple-900: #e9d5ff;
   --color-purple-950: #f3e8ff;
 }
 

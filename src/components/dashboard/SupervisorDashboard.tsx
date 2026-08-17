@@ -61,7 +61,7 @@ export function SupervisorDashboard({ furnaces, heats }: SupervisorDashboardProp
                 </div>
                 {active ? (
                   <div className="mt-3 space-y-2">
-                    <p className="text-2xl font-bold text-sky-100">{active.heat_no}</p>
+                    <p className="text-2xl font-bold text-slate-100">{active.heat_no}</p>
                     <HeatStatusBadge status={active.status} />
                     <p className="text-sm text-slate-300">{active.grade_code}</p>
                   </div>

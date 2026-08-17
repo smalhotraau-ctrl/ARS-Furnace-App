@@ -99,27 +99,32 @@ export function RoleNav({ userId, role, activeScreen, onNavigate }: RoleNavProps
   const items = NAV_BY_ROLE[role]
 
   return (
-    <nav className="border-b border-slate-800 bg-slate-950/80 px-4 py-3">
-      <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:max-w-6xl">
-        <div className="flex items-center gap-3">
-          <BilingualText en="Furnace" hi="फर्नेस" className="text-lg font-bold text-slate-100" />
-          <LanguageToggle />
-          <ThemeToggle />
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium text-slate-200">{ROLE_LABELS[role].en}</p>
-            <p className="text-xs text-slate-400">{ROLE_LABELS[role].hi}</p>
+    <nav className="border-b border-slate-700/80 bg-slate-950/90 backdrop-blur-sm">
+      <div className="mx-auto max-w-3xl px-4 lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[90rem]">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-3">
+          <div className="flex items-center gap-2.5">
+            <BilingualText en="Furnace" hi="फर्नेस" className="text-lg font-bold text-slate-100" />
+            <LanguageToggle />
+            <ThemeToggle />
           </div>
-          <DevRoleSwitcher userId={userId} currentRole={role} />
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="inline-flex min-h-11 items-center rounded-xl border border-slate-600 px-3 text-sm font-semibold text-slate-300 hover:bg-slate-800"
-          >
-            {t('Sign out', 'साइन आउट')}
-          </button>
-          <ul className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="hidden text-right sm:block">
+              <p className="text-sm font-medium text-slate-200">{ROLE_LABELS[role].en}</p>
+              <p className="text-xs text-slate-400">{ROLE_LABELS[role].hi}</p>
+            </div>
+            <DevRoleSwitcher userId={userId} currentRole={role} />
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="inline-flex min-h-10 items-center rounded-lg border border-slate-600/80 px-3 text-sm font-medium text-slate-300 hover:bg-slate-800/80"
+            >
+              {t('Sign out', 'साइन आउट')}
+            </button>
+          </div>
+        </div>
+
+        <div className="-mx-1 overflow-x-auto pb-0.5">
+          <ul className="flex min-w-max items-stretch gap-1 px-1 sm:gap-0.5 lg:flex-wrap lg:gap-x-1 xl:flex-nowrap">
             {items.map((item) => {
               const active = activeScreen === item.id
               return (
@@ -127,16 +132,22 @@ export function RoleNav({ userId, role, activeScreen, onNavigate }: RoleNavProps
                   <button
                     type="button"
                     onClick={() => onNavigate(item.id)}
-                    className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition ${
+                    className={`relative inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
                       active
-                        ? 'bg-emerald-500 text-on-accent shadow-md'
-                        : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+                        ? 'text-emerald-400'
+                        : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
                     <span aria-hidden className="text-base leading-none">
                       {item.icon}
                     </span>
                     {t(item.en, item.hi)}
+                    {active && (
+                      <span
+                        className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-emerald-500"
+                        aria-hidden
+                      />
+                    )}
                   </button>
                 </li>
               )

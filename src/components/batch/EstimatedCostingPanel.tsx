@@ -25,12 +25,12 @@ export function EstimatedCostingPanel({ estimate }: EstimatedCostingPanelProps) 
   return (
     <section className="rounded-2xl border border-sky-700/60 bg-sky-950/20 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <BilingualText as="h3" en="Estimated Costing" hi="अनुमानित लागत" className="text-lg font-bold text-sky-100" />
-        <span className="rounded-full bg-sky-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wide text-sky-200">
+        <BilingualText as="h3" en="Estimated Costing" hi="अनुमानित लागत" className="text-lg font-bold text-slate-100" />
+        <span className="rounded-full bg-sky-500/20 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-400">
           {t('Estimate', 'अनुमान')}
         </span>
       </div>
-      <p className="mt-1 text-sm text-sky-200/70">
+      <p className="mt-1 text-sm text-slate-400">
         {t(
           'Advisory only — does not affect saved plan or closed-heat costing',
           'केवल सलाह — सहेजी योजना या बंद हीट लागत को प्रभावित नहीं करता',
@@ -75,8 +75,8 @@ export function EstimatedCostingPanel({ estimate }: EstimatedCostingPanelProps) 
         </div>
 
         <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/20 p-4">
-          <p className="text-sm text-emerald-200/80">{t('Estimated cost / kg ingot', 'अनुमानित लागत / kg इंगट')}</p>
-          <p className="text-2xl font-bold text-emerald-100">₹{fmt(estimate.costPerKg)}</p>
+          <p className="text-sm text-slate-400">{t('Estimated cost / kg ingot', 'अनुमानित लागत / kg इंगट')}</p>
+          <p className="text-2xl font-bold text-slate-100">₹{fmt(estimate.costPerKg)}</p>
         </div>
       </div>
     </section>
