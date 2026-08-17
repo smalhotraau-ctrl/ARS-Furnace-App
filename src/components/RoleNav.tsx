@@ -2,6 +2,7 @@ import type { UserRole } from '../types/auth'
 import { ROLE_LABELS } from '../types/auth'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import arsLogo from '../assets/ars-logo.png'
 import { BilingualText } from './ui/BilingualText'
 import { DevRoleSwitcher } from './ui/DevRoleSwitcher'
 import { LanguageToggle } from './ui/LanguageToggle'
@@ -103,7 +104,16 @@ export function RoleNav({ userId, role, activeScreen, onNavigate }: RoleNavProps
       <div className="mx-auto max-w-3xl px-4 lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[90rem]">
         <div className="flex flex-wrap items-center justify-between gap-3 py-3">
           <div className="flex items-center gap-2.5">
-            <BilingualText en="Furnace" hi="फर्नेस" className="text-lg font-bold text-slate-100" />
+            <div className="flex items-center gap-2">
+              <span className="ars-nav-logo-wrap inline-flex shrink-0 items-center">
+                <img
+                  src={arsLogo}
+                  alt="ARS"
+                  className="h-9 w-auto max-w-[8.5rem] object-contain object-left"
+                />
+              </span>
+              <BilingualText en="Furnace" hi="फर्नेस" className="text-lg font-bold text-slate-100" />
+            </div>
             <LanguageToggle />
             <ThemeToggle />
           </div>
