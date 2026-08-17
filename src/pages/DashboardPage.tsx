@@ -17,6 +17,11 @@ import {
   fetchMainFurnacesForHeat,
   loadLocalHeats,
 } from '../lib/heatService'
+import {
+  acknowledgeCycleStageTimeFlag,
+  fetchOpenCycleStageTimeFlags,
+  syncCycleTimeQueue,
+} from '../lib/cycleTimeService'
 import { fetchChangeRequests } from '../lib/masterAdminService'
 import {
   acknowledgeYieldFlag,
@@ -28,6 +33,7 @@ import { isCompositionOutOfSpec } from '../lib/spectroCalc'
 import { fetchHeatsForSpectro, fetchSpectroReports } from '../lib/spectroService'
 import { fetchUserChangeRequests } from '../lib/userManagementService'
 import type { PlanVarianceFlag } from '../lib/heatService'
+import type { CycleStageTimeFlag } from '../types/cycleTime'
 import type { BatchPlan, FurnaceOption } from '../types/batchPlan'
 import type { Dispatch } from '../types/dispatch'
 import type { Heat, HeatCancelRequest, HeatNoCorrection } from '../types/heat'
@@ -60,6 +66,7 @@ export function DashboardPage() {
   const [changeRequests, setChangeRequests] = useState<MasterAdminChangeRequest[]>([])
   const [userChangeRequests, setUserChangeRequests] = useState<UserChangeRequest[]>([])
   const [planVarianceFlags, setPlanVarianceFlags] = useState<PlanVarianceFlag[]>([])
+  const [cycleTimeFlags, setCycleTimeFlags] = useState<CycleStageTimeFlag[]>([])
 
   const refresh = useCallback(async () => {
     setError(null)
@@ -90,9 +97,11 @@ export function DashboardPage() {
       }
 
       const isOwner = role === 'admin_owner'
+      if (navigator.onLine) await syncCycleTimeQueue()
       const [
         nextHeats,
         nextFlags,
+        nextCycleTimeFlags,
         nextOutputs,
         nextDispatches,
         nextCancels,
@@ -104,6 +113,7 @@ export function DashboardPage() {
       ] = await Promise.all([
         navigator.onLine ? fetchHeats() : Promise.resolve(loadLocalHeats()),
         fetchOpenYieldFlags(),
+        fetchOpenCycleStageTimeFlags(),
         fetchHeatOutputsSince(todayStart),
         navigator.onLine ? fetchDispatches() : Promise.resolve(loadLocalDispatches()),
         fetchCancelRequests().catch(() => []),
@@ -116,6 +126,7 @@ export function DashboardPage() {
 
       setHeats(nextHeats)
       setYieldFlags(nextFlags)
+      setCycleTimeFlags(nextCycleTimeFlags)
       setTodaysOutputs(nextOutputs)
       setDispatches(nextDispatches)
       setCancelRequests(nextCancels)
@@ -192,6 +203,7 @@ export function DashboardPage() {
           role={role}
           heats={heats}
           yieldFlags={yieldFlags}
+          cycleTimeFlags={cycleTimeFlags}
           planVarianceFlags={planVarianceFlags}
           todaysOutputs={todaysOutputs}
           dispatchShortages={dispatchShortages}
@@ -203,6 +215,10 @@ export function DashboardPage() {
           onAcknowledgeYieldFlag={async (flag, note) => {
             await acknowledgeYieldFlag(user!, flag, note)
             setYieldFlags((prev) => prev.filter((f) => f.id !== flag.id))
+          }}
+          onAcknowledgeCycleTimeFlag={async (flag, note) => {
+            await acknowledgeCycleStageTimeFlag(user!, flag, note)
+            setCycleTimeFlags((prev) => prev.filter((f) => f.id !== flag.id))
           }}
         />
       )}

@@ -21,6 +21,12 @@ import type {
   MasterAdminTargetTable,
 } from '../types/masterAdmin'
 import type {
+  CycleStageTimeStandardCreatePayload,
+  CycleStageTimeStandardRow,
+  CycleStageTimeStandardUpdatePayload,
+} from '../types/cycleTime'
+import { rowToCycleStageTimeStandard } from './cycleTimeOfflineStore'
+import type {
   ApprovalActionType,
   ApprovalSetting,
   HeatCostingOverridePayload,
@@ -111,6 +117,15 @@ export async function fetchAllProcessCostStandards(): Promise<ProcessCostStandar
     updated_by: String(row.updated_by),
     updated_at: String(row.updated_at),
   }))
+}
+
+export async function fetchAllCycleStageTimeStandards(): Promise<CycleStageTimeStandardRow[]> {
+  const { data, error } = await furnace()
+    .from('cycle_stage_time_standards')
+    .select('*')
+    .order('stage')
+  if (error) throw error
+  return (data ?? []).map((row) => rowToCycleStageTimeStandard(row as Record<string, unknown>))
 }
 
 export async function fetchChangeRequests(): Promise<MasterAdminChangeRequest[]> {
@@ -344,6 +359,31 @@ async function applyChangeToTarget(request: ChangeApplication): Promise<void> {
             ...payload,
             updated_by: authoredBy,
           })
+        if (error) throw error
+      }
+      return
+    }
+
+    case 'cycle_stage_time_standards': {
+      if (request.action === 'create') {
+        const payload = request.payload as unknown as CycleStageTimeStandardCreatePayload
+        const { error } = await furnace()
+          .from('cycle_stage_time_standards')
+          .insert({
+            ...payload,
+            updated_by: authoredBy,
+          })
+        if (error) throw error
+      } else {
+        const payload = request.payload as unknown as CycleStageTimeStandardUpdatePayload
+        const { error } = await furnace()
+          .from('cycle_stage_time_standards')
+          .update({
+            ...payload,
+            updated_by: authoredBy,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', request.target_id)
         if (error) throw error
       }
       return

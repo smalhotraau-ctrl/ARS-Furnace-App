@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { maybeFlagCycleStageOvertime } from './cycleTimeService'
 import { insertIdempotent } from './offlineQueueSync'
 import {
   addLocalChargeLine,
@@ -110,6 +111,63 @@ function mergeFetchedHeats(serverHeats: Heat[], localPending: Heat[]): Heat[] {
   }
 
   return [...dedupedByHeatNo.values()].sort((a, b) => b.created_at.localeCompare(a.created_at))
+}
+
+function entriesLinked(a: CycleLogEntry, b: CycleLogEntry): boolean {
+  return (
+    a.id === b.id ||
+    a._localId === b.id ||
+    b._localId === a.id ||
+    (a._localId != null && a._localId === b._localId)
+  )
+}
+
+function mergeFetchedCycleEntries(serverEntries: CycleLogEntry[], localPending: CycleLogEntry[]): CycleLogEntry[] {
+  const merged = new Map<string, CycleLogEntry>()
+
+  for (const entry of serverEntries) {
+    merged.set(entry.id, entry)
+  }
+
+  for (const local of localPending) {
+    const serverMatch = [...merged.values()].find((e) => entriesLinked(e, local))
+    if (serverMatch) {
+      merged.set(serverMatch.id, {
+        ...serverMatch,
+        ...local,
+        id: serverMatch.id,
+        finish_ts: local.finish_ts ?? serverMatch.finish_ts,
+        _localId: local._localId ?? serverMatch._localId,
+      })
+      if (local.id !== serverMatch.id) merged.delete(local.id)
+    } else {
+      merged.set(local.id, local)
+    }
+  }
+
+  // One row per heat+stage — prefer finished over orphan pending duplicates.
+  const byStage = new Map<string, CycleLogEntry>()
+  for (const entry of merged.values()) {
+    const key = `${entry.heat_id}:${entry.stage}`
+    const existing = byStage.get(key)
+    if (!existing) {
+      byStage.set(key, entry)
+      continue
+    }
+    if (!existing.finish_ts && entry.finish_ts) {
+      byStage.set(key, entry)
+      continue
+    }
+    if (existing.finish_ts && !entry.finish_ts) continue
+    if (existing._pending && !entry._pending) {
+      byStage.set(key, entry)
+      continue
+    }
+    if (!existing._pending && entry._pending) continue
+    if (entry.start_ts >= existing.start_ts) byStage.set(key, entry)
+  }
+
+  return [...byStage.values()].sort((a, b) => a.start_ts.localeCompare(b.start_ts))
 }
 
 async function reconcileStaleHeatStatuses(heats: Heat[]): Promise<Heat[]> {
@@ -267,11 +325,7 @@ export async function fetchCycleLog(heatId?: string): Promise<CycleLogEntry[]> {
   const localEntries = getCachedCycleLog().filter(
     (e) => e._pending && (!heatId || getHeatIdAliases(heatId).has(e.heat_id)),
   )
-  const merged = new Map<string, CycleLogEntry>()
-  for (const e of serverEntries) merged.set(e.id, e)
-  for (const e of localEntries) merged.set(e.id, e)
-
-  const result = [...merged.values()].sort((a, b) => a.start_ts.localeCompare(b.start_ts))
+  const result = mergeFetchedCycleEntries(serverEntries, localEntries)
   setCachedCycleLog(result)
   return heatId ? result.filter((e) => getHeatIdAliases(heatId).has(e.heat_id)) : result
 }
@@ -466,14 +520,6 @@ export async function startCycleStage(user: AppUser, heatId: string, stage: Cycl
 
 export async function finishCycleStage(entry: CycleLogEntry): Promise<CycleLogEntry> {
   const finish_ts = new Date().toISOString()
-  // `entry` here can be stale: it's whatever object the caller's React state still holds, which
-  // is never refreshed after a background sync reassigns this row's real server id (see the
-  // cycle_insert handler in runHeatQueueSync — cache gets the real id, React state doesn't).
-  // Patching the cache with only the fields that actually changed — never `id`/`_localId` — is
-  // deliberate: spreading the whole (possibly stale) `entry` into the cache patch would silently
-  // overwrite an already-synced entry's real id back to the old local id, which is exactly what
-  // caused cycle_finish's subsequent id resolution (see the cycle_finish handler in
-  // runHeatQueueSync) to target the wrong row and silently update zero rows.
   updateLocalCycleEntry(entry.id, { finish_ts, _pending: true })
   enqueueHeatAction({
     kind: 'cycle_finish',
@@ -481,10 +527,8 @@ export async function finishCycleStage(entry: CycleLogEntry): Promise<CycleLogEn
     localId: entry._localId,
     finish_ts,
   })
+  maybeFlagCycleStageOvertime(entry, finish_ts)
   if (navigator.onLine) void syncHeatQueue()
-  // This merged view is only for the caller's own optimistic UI update (e.g. HeatChargingPage's
-  // `setCycleEntries`) — it never touches the cache, so it's safe for it to still carry the
-  // possibly-stale id the caller already had.
   return { ...entry, finish_ts, _pending: true }
 }
 
@@ -758,19 +802,24 @@ export function collectPlanVarianceFlags(
 }
 
 export function loadLocalHeats(): Heat[] {
-  return getCachedHeats()
+  const cached = getCachedHeats()
+  return mergeFetchedHeats(
+    cached.filter((h) => !h._pending),
+    cached.filter((h) => h._pending),
+  )
 }
 
-// Used both to render instantly from cache before a fetch resolves, and as the fallback when a
-// fetch fails or the device is offline — never wipe the cycle grid / charge lines / temp readings
-// to an empty list just because the network call couldn't complete. cycle_log rows are permanent,
-// so showing a stage as "not started" when it's actually already running or finished risks a
-// Supervisor tapping Start again and creating a second, junk row for that stage.
 export function loadLocalCycleLog(heatId?: string): CycleLogEntry[] {
+  // Same merge/dedup as fetchCycleLog — never show a finished stage as still running because
+  // a stale pending local row shares the stage but lacks finish_ts.
   const cached = getCachedCycleLog()
-  if (!heatId) return cached
-  const aliases = getHeatIdAliases(heatId)
-  return cached.filter((e) => aliases.has(e.heat_id))
+  const scoped = heatId
+    ? cached.filter((e) => getHeatIdAliases(heatId).has(e.heat_id))
+    : cached
+  return mergeFetchedCycleEntries(
+    scoped.filter((e) => !e._pending),
+    scoped.filter((e) => e._pending),
+  )
 }
 
 export function loadLocalChargeLines(heatId?: string): ChargeLine[] {

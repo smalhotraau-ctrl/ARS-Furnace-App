@@ -18,12 +18,14 @@ import {
   fetchAllMaterials,
   fetchAllMaterialStdComposition,
   fetchAllMaterialYieldStandards,
+  fetchAllCycleStageTimeStandards,
   fetchAllProcessCostStandards,
   fetchChangeRequests,
   fetchRequiresOwnerApproval,
   proposeChange,
 } from '../lib/masterAdminService'
 import { ProcessCostStandardsSection } from '../components/masterAdmin/ProcessCostStandardsSection'
+import { CycleStageTimeStandardsSection } from '../components/masterAdmin/CycleStageTimeStandardsSection'
 import {
   decideUserChangeRequest,
   fetchAllUsers,
@@ -53,6 +55,11 @@ import type {
 } from '../types/masterAdmin'
 import type { ManagedUser, UserChangeRequest } from '../types/userManagement'
 import type { ProcessCostStandardCreatePayload, ProcessCostStandardRow } from '../types/costing'
+import type {
+  CycleStageTimeStandardCreatePayload,
+  CycleStageTimeStandardRow,
+  CycleStageTimeStandardUpdatePayload,
+} from '../types/cycleTime'
 import type { UserRole } from '../types/auth'
 
 type Tab =
@@ -62,6 +69,7 @@ type Tab =
   | 'material_std_composition'
   | 'material_yield_standards'
   | 'process_cost_standards'
+  | 'cycle_stage_time_standards'
   | 'users'
   | 'approvals'
 
@@ -86,6 +94,7 @@ export function MasterAdminPage() {
   const [materialStd, setMaterialStd] = useState<MaterialStdCompositionRow[]>([])
   const [yieldStandards, setYieldStandards] = useState<MaterialYieldStandardRow[]>([])
   const [processCostStandards, setProcessCostStandards] = useState<ProcessCostStandardRow[]>([])
+  const [cycleStageTimeStandards, setCycleStageTimeStandards] = useState<CycleStageTimeStandardRow[]>([])
   const [changeRequests, setChangeRequests] = useState<MasterAdminChangeRequest[]>([])
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [userChangeRequests, setUserChangeRequests] = useState<UserChangeRequest[]>([])
@@ -113,6 +122,7 @@ export function MasterAdminPage() {
         nextMaterialStd,
         nextYield,
         nextProcessCost,
+        nextCycleStageTimes,
         nextRequests,
         nextGate,
         nextUsers,
@@ -124,6 +134,7 @@ export function MasterAdminPage() {
         fetchAllMaterialStdComposition(),
         fetchAllMaterialYieldStandards(),
         fetchAllProcessCostStandards(),
+        fetchAllCycleStageTimeStandards(),
         fetchChangeRequests(),
         fetchRequiresOwnerApproval(),
         fetchAllUsers(),
@@ -135,6 +146,7 @@ export function MasterAdminPage() {
       setMaterialStd(nextMaterialStd)
       setYieldStandards(nextYield)
       setProcessCostStandards(nextProcessCost)
+      setCycleStageTimeStandards(nextCycleStageTimes)
       setChangeRequests(nextRequests)
       setRequiresOwnerApproval(nextGate)
       setUsers(nextUsers)
@@ -215,6 +227,7 @@ export function MasterAdminPage() {
     { id: 'material_std_composition', en: 'Std. Composition', hi: 'स्टैंडर्ड संरचना' },
     { id: 'material_yield_standards', en: 'Yield Standards', hi: 'यील्ड स्टैंडर्ड' },
     { id: 'process_cost_standards', en: 'Process Costs', hi: 'प्रक्रिया लागत' },
+    { id: 'cycle_stage_time_standards', en: 'Cycle Times', hi: 'साइकिल समय' },
     { id: 'users', en: 'Users', hi: 'यूज़र' },
     { id: 'approvals', en: 'Approvals', hi: 'स्वीकृतियाँ' },
   ]
@@ -334,6 +347,20 @@ export function MasterAdminPage() {
           autoApproved={autoApproved}
           onCreate={(payload: ProcessCostStandardCreatePayload) =>
             submitChange('process_cost_standards', 'create', payload, null)
+          }
+        />
+      )}
+
+      {!loading && tab === 'cycle_stage_time_standards' && (
+        <CycleStageTimeStandardsSection
+          rows={cycleStageTimeStandards}
+          canPropose={canPropose}
+          autoApproved={autoApproved}
+          onCreate={(payload: CycleStageTimeStandardCreatePayload) =>
+            submitChange('cycle_stage_time_standards', 'create', payload, null)
+          }
+          onUpdate={(rowId: string, payload: CycleStageTimeStandardUpdatePayload) =>
+            submitChange('cycle_stage_time_standards', 'update', payload, rowId)
           }
         />
       )}

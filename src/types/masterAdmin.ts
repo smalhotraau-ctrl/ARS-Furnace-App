@@ -1,3 +1,4 @@
+import type { CycleStageTimeStandardCreatePayload, CycleStageTimeStandardUpdatePayload } from './cycleTime'
 import type { HeatCostingOverridePayload, ProcessCostStandardCreatePayload, RateMasterCreatePayload, RateMasterUpdatePayload } from './costing'
 
 export interface Furnace {
@@ -145,6 +146,7 @@ export type MasterAdminTargetTable =
   | 'rate_master'
   | 'heat_costing'
   | 'process_cost_standards'
+  | 'cycle_stage_time_standards'
 
 export type MasterAdminAction = 'create' | 'update'
 
@@ -161,6 +163,8 @@ export type MasterAdminPayload =
   | RateMasterCreatePayload
   | RateMasterUpdatePayload
   | ProcessCostStandardCreatePayload
+  | CycleStageTimeStandardCreatePayload
+  | CycleStageTimeStandardUpdatePayload
   | HeatCostingOverridePayload
 
 export interface MasterAdminChangeRequest {
@@ -186,4 +190,5 @@ export const MASTER_ADMIN_TABLE_LABELS: Record<MasterAdminTargetTable, { en: str
   rate_master: { en: 'Rate Master', hi: 'रेट मास्टर' },
   heat_costing: { en: 'Material Cost Override', hi: 'मैटेरियल लागत ओवरराइड' },
   process_cost_standards: { en: 'Process Cost Standards', hi: 'प्रक्रिया लागत मानक' },
+  cycle_stage_time_standards: { en: 'Cycle Stage Times', hi: 'साइकिल चरण समय' },
 }

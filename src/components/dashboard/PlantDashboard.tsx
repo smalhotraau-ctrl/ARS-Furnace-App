@@ -8,8 +8,10 @@ import type { HeatOutput, HeatOutputFlag } from '../../types/output'
 import type { UserChangeRequest } from '../../types/userManagement'
 import { aggregateRecovery } from '../../lib/dashboardService'
 import type { PlanVarianceFlag } from '../../lib/heatService'
+import { CycleTimeExceptionsPanel } from '../heat/CycleTimeExceptionsPanel'
 import { PlanVarianceExceptionsPanel } from '../heat/PlanVarianceExceptionsPanel'
 import { YieldExceptionsPanel } from '../heat/YieldExceptionsPanel'
+import type { CycleStageTimeFlag } from '../../types/cycleTime'
 import { HeatStatusBadge } from '../heat/HeatStatusBadge'
 import { BilingualText } from '../ui/BilingualText'
 import { StatCard } from './StatCard'
@@ -19,6 +21,7 @@ interface PlantDashboardProps {
   role: 'plant_head' | 'admin_owner'
   heats: Heat[]
   yieldFlags: HeatOutputFlag[]
+  cycleTimeFlags: CycleStageTimeFlag[]
   planVarianceFlags: PlanVarianceFlag[]
   todaysOutputs: HeatOutput[]
   dispatchShortages: Dispatch[]
@@ -28,6 +31,7 @@ interface PlantDashboardProps {
   changeRequests: MasterAdminChangeRequest[]
   userChangeRequests: UserChangeRequest[]
   onAcknowledgeYieldFlag: (flag: HeatOutputFlag, note: string | null) => Promise<void>
+  onAcknowledgeCycleTimeFlag: (flag: CycleStageTimeFlag, note: string | null) => Promise<void>
 }
 
 function heatNoFor(heatId: string, heats: Heat[]): string {
@@ -38,6 +42,7 @@ export function PlantDashboard({
   role,
   heats,
   yieldFlags,
+  cycleTimeFlags,
   planVarianceFlags,
   todaysOutputs,
   dispatchShortages,
@@ -47,6 +52,7 @@ export function PlantDashboard({
   changeRequests,
   userChangeRequests,
   onAcknowledgeYieldFlag,
+  onAcknowledgeCycleTimeFlag,
 }: PlantDashboardProps) {
   const { t } = useLanguage()
   const isOwner = role === 'admin_owner'
@@ -77,6 +83,12 @@ export function PlantDashboard({
       />
 
       <PlanVarianceExceptionsPanel flags={planVarianceFlags} />
+
+      <CycleTimeExceptionsPanel
+        flags={cycleTimeFlags}
+        heats={heats}
+        onAcknowledge={onAcknowledgeCycleTimeFlag}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard labelEn="Heats in progress" labelHi="प्रगति में हीट" value={activeHeats.length} tone="info" />

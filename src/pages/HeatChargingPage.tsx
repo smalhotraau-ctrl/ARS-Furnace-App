@@ -43,7 +43,9 @@ import {
   syncHeatQueue,
 } from '../lib/heatService'
 import { floorWorkerPageClass } from '../lib/pageLayout'
+import { fetchCycleStageTimeStandards, syncCycleTimeQueue } from '../lib/cycleTimeService'
 import { heatStatusForCycleStage, shouldAdvanceHeatStatus } from '../lib/heatStatus'
+import type { CycleStageTimeStandardRow } from '../types/cycleTime'
 import type { BatchPlan, FurnaceOption, MaterialOption } from '../types/batchPlan'
 import type { ChargeLine, CycleLogEntry, Heat, TempReading } from '../types/heat'
 import { isActiveHeat } from '../types/heat'
@@ -64,6 +66,7 @@ export function HeatChargingPage() {
   const [chargeLines, setChargeLines] = useState<ChargeLine[]>([])
   const [cycleEntries, setCycleEntries] = useState<CycleLogEntry[]>([])
   const [tempReadings, setTempReadings] = useState<TempReading[]>([])
+  const [cycleStageTimeStandards, setCycleStageTimeStandards] = useState<CycleStageTimeStandardRow[]>([])
   const [furnaces, setFurnaces] = useState<FurnaceOption[]>([])
   const [materials, setMaterials] = useState<MaterialOption[]>([])
   const [gradeCodes, setGradeCodes] = useState<string[]>([])
@@ -103,6 +106,7 @@ export function HeatChargingPage() {
   const refreshData = useCallback(async () => {
     try {
       if (navigator.onLine) await syncHeatQueue()
+      if (navigator.onLine) await syncCycleTimeQueue()
       setPendingUploads(getHeatPendingCount())
       setSyncErrors(getHeatSyncErrors())
       const [nextHeats, nextFurnaces, nextMaterials, nextGradeCodes, nextPlans] = await Promise.all([
@@ -117,6 +121,11 @@ export function HeatChargingPage() {
       setMaterials(nextMaterials)
       setGradeCodes(nextGradeCodes)
       setBatchPlans(nextPlans)
+
+      if (canViewCycle) {
+        const standards = await fetchCycleStageTimeStandards().catch(() => [] as CycleStageTimeStandardRow[])
+        setCycleStageTimeStandards(standards)
+      }
 
       if (canDecide && navigator.onLine) {
         const [cancels, corrections] = await Promise.all([
@@ -135,7 +144,7 @@ export function HeatChargingPage() {
     } finally {
       setLoading(false)
     }
-  }, [canDecide])
+  }, [canDecide, canViewCycle])
 
   useEffect(() => {
     void refreshData()
@@ -220,6 +229,14 @@ export function HeatChargingPage() {
   const activeHeats = heats.filter((h) => isActiveHeat(h.status))
   const historyHeats = heats.filter((h) => h.status === 'Closed' || h.status === 'Cancelled')
   const listHeats = showHistory ? historyHeats : activeHeats
+  const singleActiveHeat = !showHistory && activeHeats.length === 1 ? activeHeats[0] : null
+  const showHeatPicker = showHistory || activeHeats.length !== 1
+
+  useEffect(() => {
+    if (singleActiveHeat && selectedHeat?.id !== singleActiveHeat.id) {
+      setSelectedHeat(singleActiveHeat)
+    }
+  }, [singleActiveHeat, selectedHeat?.id])
 
   return (
     <div className={floorWorkerPageClass(role)}>
@@ -297,7 +314,13 @@ export function HeatChargingPage() {
 
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <BilingualText as="h2" en="Heats" hi="हीट्स" className="text-lg font-semibold" />
+          {showHeatPicker ? (
+            <BilingualText as="h2" en="Heats" hi="हीट्स" className="text-lg font-semibold" />
+          ) : (
+            <p className="text-sm text-slate-400">
+              {t('Active heat', 'सक्रिय हीट')}
+            </p>
+          )}
           <button
             type="button"
             onClick={() => setShowHistory((prev) => !prev)}
@@ -308,13 +331,15 @@ export function HeatChargingPage() {
               : t('View history', 'इतिहास देखें')}
           </button>
         </div>
-        <HeatList
-          heats={listHeats}
-          selectedId={selectedHeat?.id ?? null}
-          onSelect={setSelectedHeat}
-          emptyLabelEn={showHistory ? 'No closed or cancelled heats' : 'No active heats'}
-          emptyLabelHi={showHistory ? 'कोई बंद या रद्द हीट नहीं' : 'कोई सक्रिय हीट नहीं'}
-        />
+        {showHeatPicker && (
+          <HeatList
+            heats={listHeats}
+            selectedId={selectedHeat?.id ?? null}
+            onSelect={setSelectedHeat}
+            emptyLabelEn={showHistory ? 'No closed or cancelled heats' : 'No active heats'}
+            emptyLabelHi={showHistory ? 'कोई बंद या रद्द हीट नहीं' : 'कोई सक्रिय हीट नहीं'}
+          />
+        )}
       </div>
 
       {selectedHeat && (
@@ -335,6 +360,7 @@ export function HeatChargingPage() {
             <>
               <CycleStageGrid
                 entries={cycleEntries}
+                stageTimeStandards={cycleStageTimeStandards}
                 disabled={!canStartAndCharge}
                 onStart={async (stage) => {
                   const entry = await startCycleStage(user!, selectedHeat.id, stage)
