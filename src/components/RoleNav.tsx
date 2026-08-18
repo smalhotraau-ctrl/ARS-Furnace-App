@@ -103,19 +103,27 @@ export function RoleNav({ userId, role, activeScreen, onNavigate }: RoleNavProps
     <nav className="border-b border-slate-700/80 bg-slate-950/90 backdrop-blur-sm">
       <div className="mx-auto max-w-3xl px-4 lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[90rem]">
         <div className="flex flex-wrap items-center justify-between gap-3 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-2">
-              <span className="ars-nav-logo-wrap inline-flex shrink-0 items-center">
+          <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
+            <div className="flex min-h-11 shrink-0 items-center gap-3.5 sm:min-h-12 sm:gap-4">
+              <span className="ars-nav-logo-wrap" aria-hidden="true">
                 <img
                   src={arsLogo}
-                  alt="ARS"
-                  className="h-9 w-auto max-w-[8.5rem] object-contain object-left"
+                  alt="Auto Recycling Systems"
+                  className="ars-nav-logo-img"
+                  width={44}
+                  height={44}
                 />
               </span>
-              <BilingualText en="Furnace" hi="फर्नेस" className="text-lg font-bold text-slate-100" />
+              <BilingualText
+                en="Furnace"
+                hi="फर्नेस"
+                className="text-lg font-bold leading-none text-slate-100 sm:text-xl"
+              />
             </div>
-            <LanguageToggle />
-            <ThemeToggle />
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <LanguageToggle />
+              <ThemeToggle />
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="hidden text-right sm:block">
